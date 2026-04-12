@@ -1,0 +1,121 @@
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f5f7fb;
+}
+
+/* Layout */
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+/* Title */
+.title {
+  font-size: 36px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  color: #1e293b;
+}
+
+/* Button group */
+.button-group {
+  display: flex;
+  gap: 20px;
+}
+
+/* Buttons */
+.btn {
+  padding: 12px 24px;
+  background-color: #2563eb;
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.btn:hover {
+  background-color: #1d4ed8;
+}
+
+/* Dashboard layout */
+.dashboard {
+  padding: 20px;
+}
+
+/* Card */
+.card {
+  background: white;
+  padding: 15px;
+  margin-top: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Map */
+.map {
+  height: 400px;
+  background-color: #dbeafe;
+  border-radius: 10px;
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e40af;
+  font-weight: bold;
+}
+
+/* Input */
+.input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-top: 10px;
+}
+
+/* Layout */
+.layout {
+  display: flex;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 220px;
+  height: 100vh;
+  background-color: #1e293b;
+  color: white;
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Sidebar title */
+.sidebar h2 {
+  margin-bottom: 30px;
+}
+
+/* Links */
+.sidebar a {
+  display: block;
+  color: #cbd5f5;
+  text-decoration: none;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.sidebar a:hover {
+  color: white;
+}
+
+/* Main content */
+.main {
+  margin-left: 240px;
+  padding: 20px;
+  width: 100%;
+}
