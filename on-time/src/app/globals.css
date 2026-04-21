@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap");
 
 /* =============================================
    TRANSIT FLOW — DESIGN SYSTEM (Kinetic Stream)
@@ -66,7 +66,7 @@
   --color-outline-variant: #c3c6d7;
 
   /* Typography */
-  --font-family: 'Inter', sans-serif;
+  --font-family: "Inter", sans-serif;
 
   /* Border Radius */
   --radius-sm: 0.25rem;
@@ -120,7 +120,9 @@ button {
   background: none;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: var(--font-family);
   outline: none;
   border: none;
@@ -131,7 +133,7 @@ input, textarea, select {
    ============================================= */
 
 .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+  font-family: "Material Symbols Outlined";
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -145,11 +147,19 @@ input, textarea, select {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }
 
 .material-symbols-outlined.filled {
-  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings:
+    "FILL" 1,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
 }
 
 /* =============================================
@@ -418,7 +428,11 @@ input, textarea, select {
    ============================================= */
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-container) 100%
+  );
   color: var(--color-on-primary);
   padding: 0.875rem 1.5rem;
   border-radius: var(--radius-lg);
@@ -537,13 +551,24 @@ input, textarea, select {
    ============================================= */
 
 @keyframes pulse-outer {
-  0% { transform: scale(0.8); opacity: 0.6; }
-  100% { transform: scale(2.2); opacity: 0; }
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
 }
 
 @keyframes pulse-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-  50% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
+  }
 }
 
 .live-pulse {
@@ -551,7 +576,7 @@ input, textarea, select {
 }
 
 .live-pulse::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -4px;
   border-radius: 50%;
@@ -571,7 +596,7 @@ input, textarea, select {
 }
 
 .live-dot::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -4px;
   border-radius: 50%;
@@ -619,7 +644,11 @@ input, textarea, select {
    ============================================= */
 
 .primary-gradient {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-container) 100%
+  );
 }
 
 /* =============================================
@@ -661,13 +690,17 @@ input, textarea, select {
 }
 
 .status-card-active {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-container) 100%
+  );
   box-shadow: var(--shadow-ambient);
   ring: 4px solid rgba(37, 99, 235, 0.3);
 }
 
 .status-card-complete::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -728,5 +761,16 @@ input, textarea, select {
 
   .top-app-bar {
     width: 100%;
+  }
+}
+
+/* =============================================
+   NOTIFICATION PANEL
+   ============================================= */
+
+/* Full-width panel on mobile */
+@media (max-width: 768px) {
+  aside[role="dialog"] {
+    width: 100% !important;
   }
 }

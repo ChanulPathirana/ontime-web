@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Transit Flow - Public Transport System",
+  title: "On Time - Public Transport System",
   description: "Live transit tracking and route planning dashboard",
 };
 

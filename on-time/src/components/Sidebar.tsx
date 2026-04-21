@@ -25,7 +25,7 @@ export default function Sidebar() {
   return (
     <nav className="sidebar">
       <div className="sidebar-brand">
-        <h1>Transit Flow</h1>
+        <h1>On Time</h1>
         <p>Public Transport System</p>
       </div>
 

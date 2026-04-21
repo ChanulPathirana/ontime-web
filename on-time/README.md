@@ -1,4 +1,4 @@
-# Transit Flow — Live Transit Dashboard
+# On time — Live Transit Dashboard
 
 A production-ready Next.js + TypeScript frontend based on the **Kinetic Stream** design system from the Google Stitch design files.
 
