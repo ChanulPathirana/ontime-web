@@ -1,7 +1,16 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
 
 export default function RoutesPage() {
+  const router = useRouter();
+
+  const handleSearchRoute = () => {
+    router.push("/stops");
+  };
+
   return (
     <div className="app-layout">
       <Sidebar />
@@ -148,7 +157,11 @@ export default function RoutesPage() {
                 </div>
 
                 {/* CTA Button */}
-                <button className="btn-primary" style={{ marginTop: "0.5rem" }}>
+                <button 
+                  className="btn-primary" 
+                  style={{ marginTop: "0.5rem" }}
+                  onClick={handleSearchRoute}
+                >
                   Search Route
                   <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
                     arrow_forward
