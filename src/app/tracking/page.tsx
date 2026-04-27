@@ -67,17 +67,50 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
+    if (!mapboxgl.supported({ failIfMajorPerformanceCaveat: false })) {
+      console.error("Mapbox GL is not supported in this browser/GPU context.");
+      return;
+    }
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
+      style: "mapbox://styles/mapbox/light-v11", // Lighter style for better performance
       center: ROUTE_PATH[0],
       zoom: 13,
-      pitch: 45,
+      pitch: 0, // Flat map (2D) reduces GPU requirements significantly
       bearing: 0,
+      antialias: false, // Disable antialiasing
+      maxZoom: 16,
+      minZoom: 11,
+      refreshExpiredTiles: false,
+    });
+
+    const resizeMap = () => {
+      map.current?.resize();
+    };
+
+    window.addEventListener("resize", resizeMap);
+
+    // Handle WebGL context loss
+    map.current.on("webglcontextlost", (e: mapboxgl.MapboxEvent<"webglcontextlost">) => {
+      console.error("WebGL context lost - attempting to recover");
+      if (e.originalEvent) {
+        e.originalEvent.preventDefault();
+      }
+    });
+
+    map.current.on("webglcontextrestored", () => {
+      console.log("WebGL context restored successfully");
+    });
+
+    map.current.on("error", (event: mapboxgl.ErrorEvent) => {
+      console.error("Mapbox error:", event.error || event);
     });
 
     map.current.on("load", () => {
       if (!map.current) return;
+
+      resizeMap();
 
       // Add route line to map
       map.current.addSource("route", {
@@ -143,6 +176,7 @@ export default function TrackingPage() {
     });
 
     return () => {
+      window.removeEventListener("resize", resizeMap);
       map.current?.remove();
     };
   }, []);
@@ -193,7 +227,7 @@ export default function TrackingPage() {
 
       <main
         className="main-content"
-        style={{ overflow: "hidden", height: "100vh" }}
+        style={{ overflow: "hidden", height: "100vh", position: "relative" }}
       >
         <TopAppBar title="Live Tracking" />
 
@@ -203,9 +237,12 @@ export default function TrackingPage() {
           style={{
             position: "absolute",
             top: "64px",
-            left: "256px",
+            left: 0,
             right: 0,
             bottom: 0,
+            width: "100%",
+            height: "calc(100vh - 64px)",
+            zIndex: 0,
           }}
         />
 
