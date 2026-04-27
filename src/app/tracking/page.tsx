@@ -8,10 +8,15 @@ import TopAppBar from "@/components/TopAppBar";
 
 // Set your Mapbox access token from environment variable
 // Create a .env.local file with: NEXT_PUBLIC_MAPBOX_TOKEN=your_token_here
-if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
-  console.error("NEXT_PUBLIC_MAPBOX_TOKEN is not set. Please add it to .env.local");
+if (typeof window !== 'undefined') {
+  if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+    console.error("⚠️ NEXT_PUBLIC_MAPBOX_TOKEN is not set. Please add it to .env.local");
+    console.log("Example: NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...");
+  } else {
+    console.log("✅ Mapbox token loaded successfully");
+  }
+  mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 }
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Stop {
   name: string;
@@ -74,16 +79,25 @@ export default function TrackingPage() {
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11", // Lighter style for better performance
+      style: "mapbox://styles/mapbox/streets-v12", // Updated to streets style
       center: ROUTE_PATH[0],
       zoom: 13,
       pitch: 0, // Flat map (2D) reduces GPU requirements significantly
       bearing: 0,
       antialias: false, // Disable antialiasing
-      maxZoom: 16,
-      minZoom: 11,
+      maxZoom: 18, // Increased max zoom
+      minZoom: 10, // Decreased min zoom for more flexibility
       refreshExpiredTiles: false,
     });
+
+    // Add navigation controls (zoom, rotation)
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    
+    // Add fullscreen control
+    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+    
+    // Add scale control
+    map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
 
     const resizeMap = () => {
       map.current?.resize();
@@ -135,10 +149,26 @@ export default function TrackingPage() {
         },
         paint: {
           "line-color": "#004ac6",
-          "line-width": 6,
+          "line-width": 4,
           "line-opacity": 0.8,
         },
       });
+      
+      // Add route outline for better visibility
+      map.current.addLayer({
+        id: "route-outline",
+        type: "line",
+        source: "route",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#ffffff",
+          "line-width": 6,
+          "line-opacity": 0.5,
+        },
+      }, 'route'); // Place below the main route
 
       // Add stop markers
       STOPS.forEach((stop) => {
