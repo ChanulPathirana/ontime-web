@@ -1,0 +1,102 @@
+name: Map & Live Tracking Task
+description: Tasks related to Mapbox integration, route visualization, and bus animation
+title: "[Map] "
+labels: ["role: map-tracking", "status: todo"]
+assignees:
+  - kalana-pankaja
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Map & Live Tracking
+        Use this template for tasks related to map integration, bus location display, route visualization, and animations.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the primary category for this task
+      options:
+        - Mapbox Integration
+        - Bus Location Display
+        - Route Visualization
+        - Bus Animation
+        - Performance Optimization
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this task affect?
+      options:
+        - Flutter (Mobile)
+        - Next.js (Web)
+        - Both
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Provide a detailed description of the task
+      placeholder: |
+        Example:
+        - Integrate Mapbox SDK into Flutter app
+        - Configure map styles and API keys
+        - Display bus markers on map
+    validations:
+      required: true
+      
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define what "done" looks like
+      placeholder: |
+        - [ ] Map displays correctly on all screen sizes
+        - [ ] Bus markers appear at correct coordinates
+        - [ ] Route polylines render smoothly
+        - [ ] Animation is smooth (60fps target)
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - 🔴 High
+        - 🟡 Medium
+        - 🟢 Low
+    validations:
+      required: true
+      
+  - type: textarea
+    id: map-requirements
+    attributes:
+      label: Map Requirements
+      description: Specific map features or configurations needed
+      placeholder: |
+        - Zoom levels: 10-18
+        - Map style: Streets / Satellite
+        - Markers: Custom bus icons
+        - Number of buses to display: ~50
+        
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations, dependencies, or blockers
+      placeholder: |
+        - Mapbox API key configuration
+        - Performance considerations for multiple markers
+        - Dependencies: Requires real-time data from Socket.IO
+        
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, or additional information

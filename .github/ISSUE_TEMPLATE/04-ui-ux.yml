@@ -1,0 +1,134 @@
+name: UI/UX & Display Features Task
+description: Tasks related to user interface design, components, and user experience
+title: "[UI/UX] "
+labels: ["role: ui-ux", "status: todo"]
+assignees:
+  - Ravindu-Pathirana
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## UI/UX & Display Features
+        Use this template for tasks related to interface design, components development, and user experience enhancements.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the primary category for this task
+      options:
+        - User Interface Design
+        - Bus Information Display
+        - ETA Display System
+        - Components Development
+        - Responsive Design
+        - Role-Based UI
+        - User Experience Enhancements
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this task affect?
+      options:
+        - Flutter (Mobile)
+        - Next.js (Web)
+        - Both
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Provide a detailed description of the task
+      placeholder: |
+        Example:
+        - Design and implement bus card component
+        - Create ETA display with color-coded indicators
+        - Add loading states for all async operations
+    validations:
+      required: true
+      
+  - type: textarea
+    id: design-specs
+    attributes:
+      label: Design Specifications
+      description: Visual design requirements, colors, typography, spacing
+      placeholder: |
+        Colors:
+        - On time: #10B981 (green)
+        - Delayed (< 5 min): #F59E0B (yellow)
+        - Delayed (> 5 min): #EF4444 (red)
+        
+        Typography:
+        - Heading: 24px, bold
+        - Body: 16px, regular
+        
+        Spacing: 16px padding, 8px gap
+    validations:
+      required: false
+      
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define what "done" looks like
+      placeholder: |
+        - [ ] Component matches design mockup
+        - [ ] Responsive on all screen sizes (mobile, tablet, desktop)
+        - [ ] Accessibility: proper contrast ratios, screen reader support
+        - [ ] Smooth animations (60fps)
+        - [ ] Loading states display correctly
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - 🔴 High
+        - 🟡 Medium
+        - 🟢 Low
+    validations:
+      required: true
+      
+  - type: textarea
+    id: components
+    attributes:
+      label: Components Involved
+      description: List the components being created or modified
+      placeholder: |
+        - BusCard.tsx
+        - ETAIndicator.tsx
+        - StatusChip.tsx
+        
+  - type: textarea
+    id: user-roles
+    attributes:
+      label: User Roles
+      description: How should this appear for different user roles?
+      placeholder: |
+        - Passenger: View-only, simple interface
+        - Admin: Edit controls, detailed information
+    validations:
+      required: false
+      
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations, dependencies, or blockers
+      placeholder: |
+        - Uses Tailwind CSS for styling
+        - Requires theme context from app_theme.dart (Flutter)
+        - Depends on API data structure
+        
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, Figma links, or additional information

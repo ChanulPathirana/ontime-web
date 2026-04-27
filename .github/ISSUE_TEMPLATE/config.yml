@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/OnTime-SE-G/ontime-web/wiki
+    about: Check our documentation for guides and references
+  - name: 💬 Discussions
+    url: https://github.com/OnTime-SE-G/ontime-web/discussions
+    about: Ask questions and discuss ideas with the community
