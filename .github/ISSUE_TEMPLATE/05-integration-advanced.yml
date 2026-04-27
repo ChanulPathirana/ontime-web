@@ -1,0 +1,143 @@
+name: Integration & Advanced Features Task
+description: Tasks related to system integration, notifications, authentication, testing, and optimization
+title: "[Integration] "
+labels: ["role: integration", "status: todo"]
+assignees:
+  - hasarangadinuj
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Integration & Advanced Features
+        Use this template for tasks related to combining modules, notifications, authentication, testing, and optimization.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the primary category for this task
+      options:
+        - Notification System
+        - User Roles & Authentication
+        - System Integration
+        - Testing & Bug Fixing
+        - Performance Optimization
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this task affect?
+      options:
+        - Flutter (Mobile)
+        - Next.js (Web)
+        - Both
+        - Backend
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Provide a detailed description of the task
+      placeholder: |
+        Example:
+        - Implement push notifications for bus arrival alerts
+        - Set up role-based access control (Admin vs Passenger)
+        - Integrate map module with real-time data feed
+        - Optimize bundle size for faster loading
+    validations:
+      required: true
+      
+  - type: textarea
+    id: modules-involved
+    attributes:
+      label: Modules Involved
+      description: List the modules being integrated
+      placeholder: |
+        - Map module (Mapbox)
+        - Real-time communication (Socket.IO)
+        - UI components
+        - Authentication system
+    validations:
+      required: false
+      
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define what "done" looks like
+      placeholder: |
+        - [ ] Notifications sent within 2 seconds of event
+        - [ ] Admin can access all features, passenger only viewing
+        - [ ] All modules communicate correctly
+        - [ ] Tests pass with >80% coverage
+        - [ ] Page load time < 3 seconds
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - 🔴 High
+        - 🟡 Medium
+        - 🟢 Low
+    validations:
+      required: true
+      
+  - type: textarea
+    id: testing-strategy
+    attributes:
+      label: Testing Strategy
+      description: Describe how this will be tested
+      placeholder: |
+        Unit Tests:
+        - Test notification service
+        - Test authentication logic
+        
+        Integration Tests:
+        - Test end-to-end flow
+        - Test module communication
+        
+        Performance Tests:
+        - Measure loading time
+        - Measure memory usage
+    validations:
+      required: false
+      
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies & Blockers
+      description: What needs to be completed first?
+      placeholder: |
+        Depends on:
+        - #123 - Map integration must be complete
+        - #456 - Socket.IO setup required
+        
+        Blocked by:
+        - Waiting for backend API endpoint
+    validations:
+      required: false
+      
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations or implementation details
+      placeholder: |
+        - Use Firebase Cloud Messaging for push notifications
+        - JWT tokens for authentication
+        - Redis for session management
+        - Lighthouse score target: >90
+        
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, benchmarks, or additional information

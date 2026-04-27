@@ -1,0 +1,89 @@
+name: Frontend Lead Task
+description: Tasks related to app structure, navigation, routing, and API integration
+title: "[Frontend] "
+labels: ["role: frontend-lead", "status: todo"]
+assignees: 
+  - LasanaPahanga
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Frontend Lead (App Structure)
+        Use this template for tasks related to application setup, navigation, layouts, and basic API integration.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the primary category for this task
+      options:
+        - Application Setup
+        - Navigation & Routing
+        - Layout Structure
+        - API Integration
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this task affect?
+      options:
+        - Flutter (Mobile)
+        - Next.js (Web)
+        - Both
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Provide a detailed description of the task
+      placeholder: |
+        Example:
+        - Set up Next.js project with TypeScript
+        - Configure folder structure (components, pages, lib, etc.)
+        - Install and configure dependencies
+    validations:
+      required: true
+      
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define what "done" looks like
+      placeholder: |
+        - [ ] Project initialized with correct dependencies
+        - [ ] Folder structure follows best practices
+        - [ ] Can navigate between pages without errors
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - 🔴 High
+        - 🟡 Medium
+        - 🟢 Low
+    validations:
+      required: true
+      
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations, dependencies, or blockers
+      placeholder: |
+        - Dependencies: None / Blocked by #123
+        - Related files: src/app/layout.tsx
+        - Documentation: Link to relevant docs
+        
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, or additional information

@@ -1,0 +1,127 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature] "
+labels: ["type: feature", "status: todo"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+        Suggest a new feature or enhancement for the OnTime system.
+        
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Feature Area
+      description: Which area would this feature belong to?
+      options:
+        - Frontend (App Structure)
+        - Map & Tracking
+        - Real-Time Communication
+        - UI/UX
+        - Integration
+        - Backend
+        - Documentation
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform would this feature be for?
+      options:
+        - Web (Next.js)
+        - Mobile (Flutter)
+        - Both
+        - Backend
+    validations:
+      required: true
+      
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: Users currently can't save their favorite bus routes for quick access
+    validations:
+      required: true
+      
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution
+      placeholder: |
+        Add a "Favorites" feature where users can:
+        - Star their frequently used routes
+        - See favorite routes on the home screen
+        - Get priority notifications for favorite routes
+    validations:
+      required: true
+      
+  - type: textarea
+    id: user-benefit
+    attributes:
+      label: User Benefit
+      description: How will this benefit users?
+      placeholder: |
+        - Saves time: Users don't need to search for common routes
+        - Better UX: Quick access to most-used features
+        - Personalization: Tailored experience per user
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: user-role
+    attributes:
+      label: Target User Role
+      description: Who is this feature for?
+      options:
+        - Passengers
+        - Admins
+        - Both
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature?
+      options:
+        - 🔴 High - Core functionality, needed soon
+        - 🟡 Medium - Nice to have, improves experience
+        - 🟢 Low - Enhancement, can wait
+    validations:
+      required: true
+      
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches?
+      placeholder: |
+        - Alternative 1: Use browser bookmarks
+        - Alternative 2: Recent searches history
+    validations:
+      required: false
+      
+  - type: textarea
+    id: technical-considerations
+    attributes:
+      label: Technical Considerations
+      description: Any technical aspects to consider?
+      placeholder: |
+        - Requires user authentication
+        - Data persistence (local storage or database)
+        - Sync across devices?
+    validations:
+      required: false
+      
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Mockups, examples from other apps, or additional information

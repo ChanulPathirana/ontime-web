@@ -1,0 +1,122 @@
+name: Real-Time Communication Task
+description: Tasks related to Socket.IO, live data synchronization, and real-time updates
+title: "[RealTime] "
+labels: ["role: realtime-comm", "status: todo"]
+assignees:
+  - ChanulPathirana
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Real-Time Communication
+        Use this template for tasks related to Socket.IO implementation, live data handling, and UI synchronization.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: Task Category
+      description: Select the primary category for this task
+      options:
+        - Socket.IO Implementation
+        - Live Data Handling
+        - UI Synchronization
+        - Error & Latency Handling
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform does this task affect?
+      options:
+        - Flutter (Mobile)
+        - Next.js (Web)
+        - Both
+        - Backend Integration
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: Provide a detailed description of the task
+      placeholder: |
+        Example:
+        - Establish Socket.IO connection from Next.js client
+        - Handle bus location update events
+        - Implement reconnection logic
+    validations:
+      required: true
+      
+  - type: textarea
+    id: events
+    attributes:
+      label: Socket Events
+      description: List the socket events this task involves
+      placeholder: |
+        Listening to:
+        - bus:location-update
+        - bus:eta-update
+        - bus:delay-notification
+        
+        Emitting:
+        - admin:update-route
+    validations:
+      required: false
+      
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Define what "done" looks like
+      placeholder: |
+        - [ ] Socket connection establishes successfully
+        - [ ] Real-time updates received within 1 second
+        - [ ] UI updates without page reload
+        - [ ] Handles disconnection gracefully
+        - [ ] Reconnects automatically
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - 🔴 High
+        - 🟡 Medium
+        - 🟢 Low
+    validations:
+      required: true
+      
+  - type: textarea
+    id: data-structure
+    attributes:
+      label: Data Structure
+      description: Describe the data structure for events
+      placeholder: |
+        ```json
+        {
+          "busId": "B123",
+          "location": { "lat": 6.9271, "lng": 79.8612 },
+          "timestamp": "2026-04-27T10:30:00Z"
+        }
+        ```
+        
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical Notes
+      description: Any technical considerations, dependencies, or blockers
+      placeholder: |
+        - Backend endpoint: wss://api.ontime.lk
+        - Authentication: JWT token required
+        - Fallback: Polling every 5 seconds if socket fails
+        
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, or additional information
