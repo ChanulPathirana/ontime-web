@@ -1,20 +1,189 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
+
+// Set your Mapbox access token from environment variable
+// Create a .env.local file with: NEXT_PUBLIC_MAPBOX_TOKEN=your_token_here
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Stop {
   name: string;
   time: string;
   state: "passed" | "current" | "upcoming";
+  coordinates: [number, number];
 }
 
 const STOPS: Stop[] = [
-  { name: "Central Station", time: "Departed 10:42 AM", state: "passed" },
-  { name: "Market Square", time: "Arriving 10:47 AM", state: "current" },
-  { name: "North Terminal", time: "Expected 11:05 AM", state: "upcoming" },
-  { name: "East Junction", time: "Expected 11:18 AM", state: "upcoming" },
+  { name: "Central Station", time: "Departed 10:42 AM", state: "passed", coordinates: [79.8612, 6.9271] },
+  { name: "Market Square", time: "Arriving 10:47 AM", state: "current", coordinates: [79.8650, 6.9300] },
+  { name: "North Terminal", time: "Expected 11:05 AM", state: "upcoming", coordinates: [79.8700, 6.9350] },
+  { name: "East Junction", time: "Expected 11:18 AM", state: "upcoming", coordinates: [79.8750, 6.9400] },
+];
+
+// Simulated bus route path
+const ROUTE_PATH: [number, number][] = [
+  [79.8612, 6.9271],
+  [79.8630, 6.9285],
+  [79.8650, 6.9300],
+  [79.8670, 6.9320],
+  [79.8690, 6.9335],
+  [79.8700, 6.9350],
+  [79.8720, 6.9370],
+  [79.8735, 6.9385],
+  [79.8750, 6.9400],
 ];
 
 export default function TrackingPage() {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const busMarker = useRef<mapboxgl.Marker | null>(null);
+  const [currentPosition, setCurrentPosition] = useState(0);
+  const [busSpeed, setBusSpeed] = useState(45);
+  const [bearing, setBearing] = useState(0);
+
+  // Calculate bearing (direction) between two coordinates
+  const calculateBearing = (start: [number, number], end: [number, number]) => {
+    const startLat = (start[1] * Math.PI) / 180;
+    const startLng = (start[0] * Math.PI) / 180;
+    const endLat = (end[1] * Math.PI) / 180;
+    const endLng = (end[0] * Math.PI) / 180;
+
+    const dLng = endLng - startLng;
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+
+    return (bearing + 360) % 360;
+  };
+
+  // Initialize Mapbox map
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: ROUTE_PATH[0],
+      zoom: 13,
+      pitch: 45,
+      bearing: 0,
+    });
+
+    map.current.on("load", () => {
+      if (!map.current) return;
+
+      // Add route line to map
+      map.current.addSource("route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: ROUTE_PATH,
+          },
+        },
+      });
+
+      map.current.addLayer({
+        id: "route",
+        type: "line",
+        source: "route",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#004ac6",
+          "line-width": 6,
+          "line-opacity": 0.8,
+        },
+      });
+
+      // Add stop markers
+      STOPS.forEach((stop) => {
+        const el = document.createElement("div");
+        el.style.width = "16px";
+        el.style.height = "16px";
+        el.style.borderRadius = "50%";
+        el.style.backgroundColor = stop.state === "passed" ? "#16a34a" : stop.state === "current" ? "#004ac6" : "#94a3b8";
+        el.style.border = "3px solid white";
+        el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+
+        new mapboxgl.Marker(el)
+          .setLngLat(stop.coordinates)
+          .addTo(map.current!);
+      });
+
+      // Create custom bus marker with direction arrow
+      const busEl = document.createElement("div");
+      busEl.style.width = "40px";
+      busEl.style.height = "40px";
+      busEl.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));">
+          <circle cx="20" cy="20" r="18" fill="#004ac6"/>
+          <path d="M20 10 L20 30 M15 15 L20 10 L25 15" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+
+      busMarker.current = new mapboxgl.Marker({
+        element: busEl,
+        rotationAlignment: "map",
+        pitchAlignment: "map",
+      })
+        .setLngLat(ROUTE_PATH[0])
+        .addTo(map.current);
+    });
+
+    return () => {
+      map.current?.remove();
+    };
+  }, []);
+
+  // Animate bus movement along route
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPosition((prev) => {
+        const next = (prev + 0.01) % 1;
+        const totalSegments = ROUTE_PATH.length - 1;
+        const segment = Math.floor(next * totalSegments);
+        const segmentProgress = (next * totalSegments) % 1;
+
+        if (segment < ROUTE_PATH.length - 1) {
+          const start = ROUTE_PATH[segment];
+          const end = ROUTE_PATH[segment + 1];
+
+          // Interpolate position
+          const lng = start[0] + (end[0] - start[0]) * segmentProgress;
+          const lat = start[1] + (end[1] - start[1]) * segmentProgress;
+
+          // Calculate and update bearing for direction
+          const newBearing = calculateBearing(start, end);
+          setBearing(newBearing);
+
+          // Update marker position with smooth rotation
+          if (busMarker.current) {
+            busMarker.current.setLngLat([lng, lat]);
+            const el = busMarker.current.getElement();
+            el.style.transform = `rotate(${newBearing}deg)`;
+            el.style.transition = "transform 0.5s ease-out";
+          }
+
+          // Update speed randomly for realism
+          setBusSpeed(Math.floor(40 + Math.random() * 15));
+        }
+
+        return next;
+      });
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="app-layout">
       <Sidebar />
@@ -23,563 +192,277 @@ export default function TrackingPage() {
         className="main-content"
         style={{ overflow: "hidden", height: "100vh" }}
       >
-        <TopAppBar title="On Time" />
+        <TopAppBar title="Live Tracking" />
 
-        {/* Map fills full area */}
+        {/* Mapbox Container */}
         <div
+          ref={mapContainer}
           style={{
             position: "absolute",
             top: "64px",
             left: "256px",
             right: 0,
             bottom: 0,
-            backgroundColor: "var(--color-surface-container-high)",
+          }}
+        />
+
+        {/* Glass Sidebar Panel */}
+        <div
+          className="glass-panel"
+          style={{
+            position: "absolute",
+            top: "88px",
+            left: "280px",
+            width: "380px",
+            maxHeight: "calc(100vh - 112px)",
+            borderRadius: "var(--radius-xl)",
+            padding: "1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1.5rem",
+            overflowY: "auto",
+            zIndex: 10,
           }}
         >
-          {/* Map Background */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(135deg, #e2e8f4 0%, #d4ddf0 40%, #dce4f2 70%, #cfd9ef 100%)",
-            }}
-          >
-            {/* Stylized city grid */}
-            <svg
-              width="100%"
-              height="100%"
-              style={{ position: "absolute", inset: 0, opacity: 0.55 }}
-            >
-              {/* Main roads */}
-              <line x1="0" y1="38%" x2="100%" y2="32%" stroke="#b0bdd4" strokeWidth="18" />
-              <line x1="0" y1="62%" x2="100%" y2="58%" stroke="#b0bdd4" strokeWidth="14" />
-              <line x1="22%" y1="0" x2="18%" y2="100%" stroke="#b0bdd4" strokeWidth="14" />
-              <line x1="62%" y1="0" x2="66%" y2="100%" stroke="#b0bdd4" strokeWidth="16" />
-              {/* Secondary roads */}
-              <line x1="0" y1="20%" x2="100%" y2="16%" stroke="#bec8db" strokeWidth="8" />
-              <line x1="0" y1="78%" x2="100%" y2="80%" stroke="#bec8db" strokeWidth="8" />
-              <line x1="42%" y1="0" x2="44%" y2="100%" stroke="#bec8db" strokeWidth="8" />
-              <line x1="82%" y1="0" x2="84%" y2="100%" stroke="#bec8db" strokeWidth="8" />
-              {/* City blocks */}
-              <rect x="24%" y="15%" width="15%" height="20%" fill="#c8d2e2" rx="6" />
-              <rect x="45%" y="10%" width="14%" height="18%" fill="#c8d2e2" rx="6" />
-              <rect x="68%" y="14%" width="12%" height="16%" fill="#c8d2e2" rx="6" />
-              <rect x="5%" y="42%" width="10%" height="14%" fill="#c8d2e2" rx="6" />
-              <rect x="24%" y="44%" width="16%" height="12%" fill="#c8d2e2" rx="6" />
-              <rect x="68%" y="42%" width="14%" height="12%" fill="#c8d2e2" rx="6" />
-              <rect x="5%" y="65%" width="12%" height="18%" fill="#c8d2e2" rx="6" />
-              <rect x="45%" y="65%" width="18%" height="20%" fill="#c8d2e2" rx="6" />
-              <rect x="68%" y="65%" width="14%" height="22%" fill="#c8d2e2" rx="6" />
-            </svg>
-
-            {/* Transit Route SVG Overlay */}
-            <svg
-              width="100%"
-              height="100%"
-              style={{ position: "absolute", inset: 0 }}
-            >
-              {/* Route glow */}
-              <path
-                d="M 100 520 Q 280 380, 520 390 Q 700 400, 820 280 T 1200 160"
-                fill="none"
-                stroke="#004ac6"
-                strokeWidth="12"
-                strokeLinecap="round"
-                opacity="0.15"
-              />
-              {/* Route dashed line */}
-              <path
-                d="M 100 520 Q 280 380, 520 390 Q 700 400, 820 280 T 1200 160"
-                fill="none"
-                stroke="#004ac6"
-                strokeWidth="5"
-                strokeLinecap="round"
-                strokeDasharray="14 8"
-                opacity="0.9"
-              />
-              {/* Passed stop */}
-              <circle cx="280" cy="400" r="8" fill="#737686" opacity="0.7" />
-              <circle cx="280" cy="400" r="4" fill="white" />
-              {/* Current bus location (animated pulse) */}
-              <circle cx="520" cy="390" r="22" fill="#004ac6" opacity="0.15" />
-              <circle cx="520" cy="390" r="14" fill="#004ac6" />
-              <circle cx="520" cy="390" r="7" fill="white" />
-              {/* Upcoming stop 1 */}
-              <circle cx="820" cy="280" r="9" fill="white" stroke="#004ac6" strokeWidth="3" />
-              {/* Upcoming stop 2 */}
-              <circle cx="1050" cy="210" r="7" fill="white" stroke="#737686" strokeWidth="2" opacity="0.6" />
-            </svg>
-          </div>
-
-          {/* Floating Map Controls */}
-          <div
-            style={{
-              position: "absolute",
-              top: "1.5rem",
-              left: "1rem",
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
-            <button
+          {/* Bus Info Card */}
+          <div>
+            <div
               style={{
-                width: "44px",
-                height: "44px",
-                borderRadius: "50%",
-                backgroundColor: "var(--color-surface-container-lowest)",
-                boxShadow: "var(--shadow-ambient-sm)",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-on-surface)",
-                transition: "all 0.2s ease",
-              }}
-              aria-label="Center on my location"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-                my_location
-              </span>
-            </button>
-
-            <div
-              style={{
-                backgroundColor: "var(--color-surface-container-lowest)",
-                boxShadow: "var(--shadow-ambient-sm)",
-                borderRadius: "var(--radius-lg)",
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
+                gap: "1rem",
+                marginBottom: "1rem",
               }}
             >
-              <button
-                style={{
-                  padding: "0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--color-on-surface)",
-                  transition: "background 0.2s",
-                }}
-                aria-label="Zoom in"
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-                  add
-                </span>
-              </button>
               <div
                 style={{
-                  height: "1px",
-                  backgroundColor: "var(--color-surface-container-high)",
-                }}
-              />
-              <button
-                style={{
-                  padding: "0.75rem",
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "var(--radius-lg)",
+                  background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-container))",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "var(--color-on-surface)",
-                  transition: "background 0.2s",
+                  flexShrink: 0,
                 }}
-                aria-label="Zoom out"
               >
-                <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-                  remove
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: "28px",
+                    color: "white",
+                    fontVariationSettings: "'FILL' 1",
+                  }}
+                >
+                  directions_bus
                 </span>
-              </button>
+              </div>
+              <div>
+                <p
+                  style={{
+                    fontSize: "0.6875rem",
+                    fontWeight: 700,
+                    color: "var(--color-on-surface-variant)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    marginBottom: "0.25rem",
+                  }}
+                >
+                  Route 882
+                </p>
+                <h3
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: 700,
+                    color: "var(--color-on-surface)",
+                  }}
+                >
+                  Colombo - Piliyandala
+                </h3>
+              </div>
             </div>
-          </div>
 
-          {/* Right Sidebar Detail Panel */}
-          <aside
-            style={{
-              position: "absolute",
-              top: "1.5rem",
-              right: "1.5rem",
-              bottom: "1.5rem",
-              width: "384px",
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-              overflowY: "auto",
-            }}
-          >
-            {/* Bus Status Card */}
+            {/* Live Stats */}
             <div
               style={{
-                backgroundColor: "rgba(255,255,255,0.9)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1.5rem",
-                boxShadow: "var(--shadow-float)",
-                border: "1px solid rgba(225, 227, 228, 0.3)",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "0.75rem",
               }}
             >
-              {/* Header */}
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "1.5rem",
+                  backgroundColor: "var(--color-surface-container)",
+                  padding: "0.75rem",
+                  borderRadius: "var(--radius-lg)",
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      marginBottom: "0.375rem",
-                    }}
-                  >
-                    <span className="route-chip">Bus #402</span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        backgroundColor: "rgba(37, 99, 235, 0.1)",
-                        color: "var(--color-primary)",
-                        padding: "0.2rem 0.5rem",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    >
-                      Express
-                    </span>
-                  </div>
-                  <h2
-                    style={{
-                      fontSize: "1.5rem",
-                      fontWeight: 700,
-                      color: "var(--color-on-surface)",
-                      letterSpacing: "-0.01em",
-                    }}
-                  >
-                    Downtown Loop
-                  </h2>
-                </div>
                 <div
                   style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "var(--radius-lg)",
-                    background:
-                      "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%)",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 4px 12px rgba(0, 74, 198, 0.3)",
-                    flexShrink: 0,
+                    gap: "0.5rem",
+                    marginBottom: "0.25rem",
+                  }}
+                >
+                  <div className="live-dot" style={{ width: "6px", height: "6px" }} />
+                  <span
+                    style={{
+                      fontSize: "0.6875rem",
+                      fontWeight: 700,
+                      color: "var(--color-on-surface-variant)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Speed
+                  </span>
+                </div>
+                <p
+                  style={{
+                    fontSize: "1.5rem",
+                    fontWeight: 700,
+                    color: "var(--color-on-surface)",
+                  }}
+                >
+                  {busSpeed} <span style={{ fontSize: "0.875rem" }}>km/h</span>
+                </p>
+              </div>
+              <div
+                style={{
+                  backgroundColor: "var(--color-surface-container)",
+                  padding: "0.75rem",
+                  borderRadius: "var(--radius-lg)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    marginBottom: "0.25rem",
                   }}
                 >
                   <span
                     className="material-symbols-outlined"
                     style={{
-                      color: "white",
-                      fontVariationSettings: "'FILL' 1",
-                      fontSize: "22px",
+                      fontSize: "14px",
+                      color: "var(--color-on-surface-variant)",
                     }}
                   >
-                    directions_bus
+                    explore
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.6875rem",
+                      fontWeight: 700,
+                      color: "var(--color-on-surface-variant)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Bearing
                   </span>
                 </div>
-              </div>
-
-              {/* Stats Grid */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "0.75rem",
-                  marginBottom: "1.25rem",
-                }}
-              >
-                <div
-                  style={{
-                    backgroundColor: "var(--color-surface-container-low)",
-                    padding: "1rem",
-                    borderRadius: "var(--radius-lg)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "var(--color-on-surface-variant)",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Current Speed
-                  </p>
-                  <p
-                    style={{
-                      fontSize: "1.25rem",
-                      fontWeight: 700,
-                      color: "var(--color-on-surface)",
-                    }}
-                  >
-                    45{" "}
-                    <span
-                      style={{
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        color: "var(--color-outline)",
-                      }}
-                    >
-                      km/h
-                    </span>
-                  </p>
-                </div>
-                <div
-                  style={{
-                    backgroundColor: "var(--color-surface-container-low)",
-                    padding: "1rem",
-                    borderRadius: "var(--radius-lg)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "var(--color-on-surface-variant)",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Status
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div
-                      className="live-dot"
-                      style={{ backgroundColor: "#16a34a" }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "1.125rem",
-                        fontWeight: 700,
-                        color: "#16a34a",
-                      }}
-                    >
-                      On Time
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ETA Highlight */}
-              <div
-                style={{
-                  backgroundColor: "rgba(0, 74, 198, 0.06)",
-                  border: "1px solid rgba(0, 74, 198, 0.1)",
-                  borderRadius: "var(--radius-lg)",
-                  padding: "1.25rem",
-                  textAlign: "center",
-                  position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background:
-                      "linear-gradient(135deg, rgba(0,74,198,0.04) 0%, transparent 100%)",
-                  }}
-                />
                 <p
                   style={{
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    color: "var(--color-primary)",
-                    marginBottom: "0.25rem",
-                    position: "relative",
-                    zIndex: 1,
+                    fontSize: "1.5rem",
+                    fontWeight: 700,
+                    color: "var(--color-on-surface)",
                   }}
                 >
-                  Live ETA
-                </p>
-                <h3
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 900,
-                    color: "var(--color-primary)",
-                    letterSpacing: "-0.03em",
-                    position: "relative",
-                    zIndex: 1,
-                  }}
-                >
-                  5 mins
-                </h3>
-                <p
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "var(--color-on-surface-variant)",
-                    position: "relative",
-                    zIndex: 1,
-                  }}
-                >
-                  to your stop (Market Square)
+                  {Math.round(bearing)}°
                 </p>
               </div>
             </div>
+          </div>
 
-            {/* Route Timeline Card */}
-            <div
+          {/* Stops List */}
+          <div>
+            <h4
               style={{
-                backgroundColor: "rgba(255,255,255,0.9)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1.5rem",
-                boxShadow: "var(--shadow-float)",
-                border: "1px solid rgba(225, 227, 228, 0.3)",
-                flex: 1,
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                color: "var(--color-on-surface-variant)",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: "0.75rem",
               }}
             >
-              <h3
-                style={{
-                  fontSize: "1.0625rem",
-                  fontWeight: 700,
-                  color: "var(--color-on-surface)",
-                  marginBottom: "1.5rem",
-                }}
-              >
-                Stops Timeline
-              </h3>
-
-              <div style={{ position: "relative", paddingLeft: "1.5rem" }}>
-                {/* Vertical connector line */}
+              Route Stops
+            </h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {STOPS.map((stop, index) => (
                 <div
+                  key={index}
                   style={{
-                    position: "absolute",
-                    left: "11px",
-                    top: "8px",
-                    bottom: "24px",
-                    width: "2px",
-                    backgroundColor: "var(--color-surface-container-highest)",
-                    zIndex: 0,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "1rem",
+                    padding: "0.75rem",
+                    backgroundColor:
+                      stop.state === "current"
+                        ? "rgba(0, 74, 198, 0.08)"
+                        : "var(--color-surface-container)",
+                    borderRadius: "var(--radius-lg)",
+                    opacity: stop.state === "passed" ? 0.6 : 1,
                   }}
-                />
-
-                {STOPS.map((stop, index) => {
-                  const isPassed = stop.state === "passed";
-                  const isCurrent = stop.state === "current";
-
-                  return (
-                    <div
-                      key={stop.name}
+                >
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      backgroundColor:
+                        stop.state === "passed"
+                          ? "#16a34a"
+                          : stop.state === "current"
+                          ? "var(--color-primary)"
+                          : "var(--color-surface-container-high)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
                       style={{
-                        position: "relative",
-                        zIndex: 1,
-                        marginBottom: index < STOPS.length - 1 ? "2rem" : 0,
-                        opacity: isPassed ? 0.6 : 1,
+                        fontSize: "16px",
+                        color:
+                          stop.state === "passed" || stop.state === "current"
+                            ? "white"
+                            : "var(--color-on-surface-variant)",
+                        fontVariationSettings:
+                          stop.state === "passed" ? "'FILL' 1" : "'FILL' 0",
                       }}
                     >
-                      {/* Timeline dot */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          left: "-24px",
-                          top: "4px",
-                          width: isCurrent ? "20px" : "16px",
-                          height: isCurrent ? "20px" : "16px",
-                          borderRadius: "50%",
-                          backgroundColor: isCurrent
-                            ? "var(--color-primary)"
-                            : isPassed
-                            ? "var(--color-outline-variant)"
-                            : "var(--color-surface-container-lowest)",
-                          border: !isCurrent && !isPassed
-                            ? "2px solid var(--color-primary)"
-                            : isCurrent
-                            ? "3px solid white"
-                            : "none",
-                          boxShadow: isCurrent
-                            ? "0 0 0 4px rgba(0, 74, 198, 0.2)"
-                            : "none",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginLeft: isCurrent ? "-2px" : "0",
-                        }}
-                      >
-                        {isPassed && (
-                          <span
-                            className="material-symbols-outlined"
-                            style={{
-                              fontSize: "10px",
-                              color: "white",
-                              fontVariationSettings: "'FILL' 1",
-                            }}
-                          >
-                            check
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Stop content */}
-                      {isCurrent ? (
-                        <div
-                          style={{
-                            backgroundColor: "var(--color-surface-container-low)",
-                            padding: "0.75rem 1rem",
-                            borderRadius: "var(--radius-md)",
-                            border: "1px solid rgba(0, 74, 198, 0.1)",
-                            marginTop: "-0.5rem",
-                          }}
-                        >
-                          <p
-                            style={{
-                              fontSize: "0.9375rem",
-                              fontWeight: 700,
-                              color: "var(--color-primary)",
-                            }}
-                          >
-                            {stop.name}
-                          </p>
-                          <p
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "var(--color-on-surface-variant)",
-                              marginTop: "0.125rem",
-                            }}
-                          >
-                            {stop.time}
-                          </p>
-                        </div>
-                      ) : (
-                        <div>
-                          <p
-                            style={{
-                              fontSize: "0.9375rem",
-                              fontWeight: isPassed ? 400 : 600,
-                              color: isPassed
-                                ? "var(--color-on-surface-variant)"
-                                : "var(--color-on-surface)",
-                            }}
-                          >
-                            {stop.name}
-                          </p>
-                          <p
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "var(--color-outline)",
-                              marginTop: "0.125rem",
-                            }}
-                          >
-                            {stop.time}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      {stop.state === "passed" ? "check" : "radio_button_unchecked"}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        fontWeight: 700,
+                        color: "var(--color-on-surface)",
+                        marginBottom: "0.125rem",
+                      }}
+                    >
+                      {stop.name}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "var(--color-on-surface-variant)",
+                      }}
+                    >
+                      {stop.time}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </aside>
+          </div>
         </div>
       </main>
     </div>
