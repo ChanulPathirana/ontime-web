@@ -8,6 +8,9 @@ import TopAppBar from "@/components/TopAppBar";
 
 // Set your Mapbox access token from environment variable
 // Create a .env.local file with: NEXT_PUBLIC_MAPBOX_TOKEN=your_token_here
+if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+  console.error("NEXT_PUBLIC_MAPBOX_TOKEN is not set. Please add it to .env.local");
+}
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 interface Stop {
