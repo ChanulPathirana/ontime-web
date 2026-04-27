@@ -233,14 +233,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `👋 Welcome to OnTime! Thanks for creating your first issue. 
-
-Please make sure you've:
-- [ ] Used the appropriate issue template
-- [ ] Filled in all required fields
-- [ ] Added appropriate labels
-- [ ] Assigned yourself if you're working on it
-
-Check out our [Project Management Guide](../PROJECT_MANAGEMENT.md) for more information on our workflow.`
+                body: "👋 Welcome to OnTime! Thanks for creating your first issue.\n\nPlease make sure you've:\n- [ ] Used the appropriate issue template\n- [ ] Filled in all required fields\n- [ ] Added appropriate labels\n- [ ] Assigned yourself if you're working on it\n\nCheck out our [Project Management Guide](../PROJECT_MANAGEMENT.md) for more information on our workflow."
               });
             }
+
