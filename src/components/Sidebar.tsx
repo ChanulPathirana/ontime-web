@@ -3,20 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-interface NavItem {
-  href: string;
-  icon: string;
-  label: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/", icon: "route", label: "Routes" },
-  { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
-  { href: "/tracking", icon: "map", label: "Map/Tracking" },
-  { href: "/nearby", icon: "directions_bus", label: "Nearby Buses" },
-  { href: "/driver", icon: "airport_shuttle", label: "Driver Status" },
-  { href: "/notifications", icon: "notifications", label: "Notifications" },
-  { href: "/profile", icon: "person", label: "Profile" },
+const NAV_ITEMS = [
+  { href: "/",              icon: "search",         label: "Search Routes"  },
+  { href: "/stops",         icon: "near_me",        label: "Nearby Stops"   },
+  { href: "/nearby",        icon: "directions_bus", label: "Bus Routes"     },
+  { href: "/tracking",      icon: "map",            label: "Live Tracking"  },
+  { href: "/notifications", icon: "notifications",  label: "Alerts"         },
+  { href: "/profile",       icon: "person",         label: "Profile"        },
 ];
 
 export default function Sidebar() {
@@ -26,7 +19,7 @@ export default function Sidebar() {
     <nav className="sidebar">
       <div className="sidebar-brand">
         <h1>On Time</h1>
-        <p>Public Transport System</p>
+        <p>Public Transport</p>
       </div>
 
       <ul className="sidebar-nav">
@@ -34,16 +27,11 @@ export default function Sidebar() {
           const isActive = pathname === item.href;
           return (
             <li key={item.href}>
-              <Link
-                href={item.href}
-                className={`nav-link${isActive ? " active" : ""}`}
-              >
+              <Link href={item.href} className={`nav-link${isActive ? " active" : ""}`}>
                 <span
                   className="material-symbols-outlined"
                   style={{
-                    fontVariationSettings: isActive
-                      ? "'FILL' 1, 'wght' 400"
-                      : "'FILL' 0, 'wght' 400",
+                    fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
                     fontSize: "22px",
                   }}
                 >
@@ -57,11 +45,9 @@ export default function Sidebar() {
       </ul>
 
       <div className="sidebar-footer">
-        <Link href="/logout" className="nav-link">
-          <span className="material-symbols-outlined" style={{ fontSize: "22px" }}>
-            logout
-          </span>
-          <span>Logout</span>
+        <Link href="/profile" className="nav-link">
+          <span className="material-symbols-outlined" style={{ fontSize: "22px" }}>account_circle</span>
+          <span>My Account</span>
         </Link>
       </div>
     </nav>
