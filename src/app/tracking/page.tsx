@@ -1,540 +1,218 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
+import {
+  BUSES, TRANSIT_ROUTES,
+  interpolate, getBearing, splitPath,
+  getStopState, stopTimeLabel,
+} from "@/lib/transitData";
 
-// Set your Mapbox access token from environment variable
-// Create a .env.local file with: NEXT_PUBLIC_MAPBOX_TOKEN=your_token_here
-if (typeof window !== 'undefined') {
-  if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
-    console.error("⚠️ NEXT_PUBLIC_MAPBOX_TOKEN is not set. Please add it to .env.local");
-    console.log("Example: NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...");
-  } else {
-    console.log("✅ Mapbox token loaded successfully");
-  }
-  mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-}
+function TrackingContent() {
+  const searchParams = useSearchParams();
+  const busId        = searchParams.get("bus") ?? "1";
+  const bus          = BUSES[busId] ?? BUSES["1"];
+  const route        = TRANSIT_ROUTES[bus.routeId];
 
-interface Stop {
-  name: string;
-  time: string;
-  state: "passed" | "current" | "upcoming";
-  coordinates: [number, number];
-}
-
-const STOPS: Stop[] = [
-  { name: "Central Station", time: "Departed 10:42 AM", state: "passed", coordinates: [79.8612, 6.9271] },
-  { name: "Market Square", time: "Arriving 10:47 AM", state: "current", coordinates: [79.8650, 6.9300] },
-  { name: "North Terminal", time: "Expected 11:05 AM", state: "upcoming", coordinates: [79.8700, 6.9350] },
-  { name: "East Junction", time: "Expected 11:18 AM", state: "upcoming", coordinates: [79.8750, 6.9400] },
-];
-
-// Simulated bus route path
-const ROUTE_PATH: [number, number][] = [
-  [79.8612, 6.9271],
-  [79.8630, 6.9285],
-  [79.8650, 6.9300],
-  [79.8670, 6.9320],
-  [79.8690, 6.9335],
-  [79.8700, 6.9350],
-  [79.8720, 6.9370],
-  [79.8735, 6.9385],
-  [79.8750, 6.9400],
-];
-
-export default function TrackingPage() {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const busMarker = useRef<mapboxgl.Marker | null>(null);
-  const [currentPosition, setCurrentPosition] = useState(0);
-  const [busSpeed, setBusSpeed] = useState(45);
-  const [bearing, setBearing] = useState(0);
+  const map          = useRef<mapboxgl.Map | null>(null);
+  const busMarker    = useRef<mapboxgl.Marker | null>(null);
+  const progress     = useRef(bus.initProgress);
 
-  // Calculate bearing (direction) between two coordinates
-  const calculateBearing = (start: [number, number], end: [number, number]) => {
-    const startLat = (start[1] * Math.PI) / 180;
-    const startLng = (start[0] * Math.PI) / 180;
-    const endLat = (end[1] * Math.PI) / 180;
-    const endLng = (end[0] * Math.PI) / 180;
+  const [speed, setSpeed] = useState(42);
+  const [prog,  setProg]  = useState(bus.initProgress);
 
-    const dLng = endLng - startLng;
-    const y = Math.sin(dLng) * Math.cos(endLat);
-    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
-    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
-
-    return (bearing + 360) % 360;
-  };
-
-  // Initialize Mapbox map
+  // ── Map init ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    if (!mapboxgl.supported({ failIfMajorPerformanceCaveat: false })) {
-      console.error("Mapbox GL is not supported in this browser/GPU context.");
-      return;
-    }
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
+
+    const startPos = interpolate(route.path, bus.initProgress);
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12", // Updated to streets style
-      center: ROUTE_PATH[0],
-      zoom: 13,
-      pitch: 0, // Flat map (2D) reduces GPU requirements significantly
-      bearing: 0,
-      antialias: false, // Disable antialiasing
-      maxZoom: 18, // Increased max zoom
-      minZoom: 10, // Decreased min zoom for more flexibility
-      refreshExpiredTiles: false,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: startPos,
+      zoom: 14,
     });
 
-    // Add navigation controls (zoom, rotation)
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    
-    // Add fullscreen control
-    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-    
-    // Add scale control
-    map.current.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
-
-    const resizeMap = () => {
-      map.current?.resize();
-    };
-
-    window.addEventListener("resize", resizeMap);
-
-    // Handle WebGL context loss
-    map.current.on("webglcontextlost", (e: mapboxgl.MapboxEvent<"webglcontextlost">) => {
-      console.error("WebGL context lost - attempting to recover");
-      if (e.originalEvent) {
-        e.originalEvent.preventDefault();
-      }
-    });
-
-    map.current.on("webglcontextrestored", () => {
-      console.log("WebGL context restored successfully");
-    });
-
-    map.current.on("error", (event: mapboxgl.ErrorEvent) => {
-      console.error("Mapbox error:", event.error || event);
-    });
+    map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    map.current.addControl(new mapboxgl.ScaleControl(), "bottom-left");
 
     map.current.on("load", () => {
-      if (!map.current) return;
+      const m = map.current!;
 
-      resizeMap();
-
-      // Add route line to map
-      map.current.addSource("route", {
+      // Passed segment source (updated each tick)
+      m.addSource("passed", {
         type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: ROUTE_PATH,
-          },
-        },
+        data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [startPos] } },
       });
+      m.addLayer({ id: "passed", type: "line", source: "passed",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#94a3b8", "line-width": 4, "line-opacity": 0.6, "line-dasharray": [2, 2] } });
 
-      map.current.addLayer({
-        id: "route",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": "#004ac6",
-          "line-width": 4,
-          "line-opacity": 0.8,
-        },
+      // Ahead segment source
+      m.addSource("ahead", {
+        type: "geojson",
+        data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: route.path } },
       });
-      
-      // Add route outline for better visibility
-      map.current.addLayer({
-        id: "route-outline",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": "#ffffff",
-          "line-width": 6,
-          "line-opacity": 0.5,
-        },
-      }, 'route'); // Place below the main route
+      m.addLayer({ id: "ahead-outline", type: "line", source: "ahead",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 0.4 } });
+      m.addLayer({ id: "ahead", type: "line", source: "ahead",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": route.color, "line-width": 4 } });
 
-      // Add stop markers
-      STOPS.forEach((stop) => {
-        const el = document.createElement("div");
-        el.style.width = "16px";
-        el.style.height = "16px";
-        el.style.borderRadius = "50%";
-        el.style.backgroundColor = stop.state === "passed" ? "#16a34a" : stop.state === "current" ? "#004ac6" : "#94a3b8";
-        el.style.border = "3px solid white";
-        el.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-
-        new mapboxgl.Marker(el)
+      // Stop markers
+      route.stops.forEach((stop, i) => {
+        const state = getStopState(i, route.stops.length, progress.current);
+        const el    = document.createElement("div");
+        el.style.cssText = `width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);background:${state === "passed" ? "#94a3b8" : state === "current" ? route.color : "white"}`;
+        el.id = `stop-${i}`;
+        new mapboxgl.Marker({ element: el })
           .setLngLat(stop.coordinates)
-          .addTo(map.current!);
+          .setPopup(new mapboxgl.Popup({ offset: 10, closeButton: false }).setText(stop.name))
+          .addTo(m);
       });
 
-      // Create custom bus marker with direction arrow
+      // Bus marker
       const busEl = document.createElement("div");
-      busEl.style.width = "40px";
-      busEl.style.height = "40px";
+      busEl.style.cssText = "width:40px;height:40px;cursor:pointer";
       busEl.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));">
-          <circle cx="20" cy="20" r="18" fill="#004ac6"/>
-          <path d="M20 10 L20 30 M15 15 L20 10 L25 15" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      `;
-
-      busMarker.current = new mapboxgl.Marker({
-        element: busEl,
-        rotationAlignment: "map",
-        pitchAlignment: "map",
-      })
-        .setLngLat(ROUTE_PATH[0])
-        .addTo(map.current);
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"
+             style="filter:drop-shadow(0 2px 8px rgba(0,0,0,0.35))">
+          <circle cx="20" cy="20" r="18" fill="${route.color}"/>
+          <rect x="12" y="13" width="16" height="12" rx="2" fill="white"/>
+          <rect x="14" y="14" width="4" height="3" rx="1" fill="${route.color}"/>
+          <rect x="22" y="14" width="4" height="3" rx="1" fill="${route.color}"/>
+          <path d="M20 4 L23 9 L20 7.5 L17 9 Z" fill="white" opacity="0.9"/>
+        </svg>`;
+      busMarker.current = new mapboxgl.Marker({ element: busEl, rotationAlignment: "map", pitchAlignment: "map" })
+        .setLngLat(startPos)
+        .addTo(m);
     });
 
-    return () => {
-      window.removeEventListener("resize", resizeMap);
-      map.current?.remove();
-    };
-  }, []);
+    return () => { map.current?.remove(); map.current = null; };
+  // eslint-disable name/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busId]);
 
-  // Animate bus movement along route
+  // ── Animation loop ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentPosition((prev) => {
-        const next = (prev + 0.01) % 1;
-        const totalSegments = ROUTE_PATH.length - 1;
-        const segment = Math.floor(next * totalSegments);
-        const segmentProgress = (next * totalSegments) % 1;
+    const id = setInterval(() => {
+      progress.current = (progress.current + 0.0035) % 1;
+      const p   = progress.current;
+      const pos = interpolate(route.path, p);
+      const brg = getBearing(route.path, p);
 
-        if (segment < ROUTE_PATH.length - 1) {
-          const start = ROUTE_PATH[segment];
-          const end = ROUTE_PATH[segment + 1];
+      busMarker.current?.setLngLat(pos);
+      busMarker.current?.setRotation(brg);
+      map.current?.flyTo({ center: pos, zoom: map.current.getZoom(), duration: 200 });
 
-          // Interpolate position
-          const lng = start[0] + (end[0] - start[0]) * segmentProgress;
-          const lat = start[1] + (end[1] - start[1]) * segmentProgress;
+      // Update route split
+      if (map.current?.isStyleLoaded()) {
+        const { passed, ahead } = splitPath(route.path, p);
+        (map.current.getSource("passed") as mapboxgl.GeoJSONSource)?.setData(
+          { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: passed } }
+        );
+        (map.current.getSource("ahead") as mapboxgl.GeoJSONSource)?.setData(
+          { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ahead } }
+        );
+      }
 
-          // Calculate and update bearing for direction
-          const newBearing = calculateBearing(start, end);
-          setBearing(newBearing);
+      setSpeed(Math.floor(36 + Math.random() * 18));
+      setProg(p);
+    }, 100);
 
-          // Update marker position with smooth rotation
-          if (busMarker.current) {
-            busMarker.current.setLngLat([lng, lat]);
-            const el = busMarker.current.getElement();
-            el.style.transform = `rotate(${newBearing}deg)`;
-            el.style.transition = "transform 0.5s ease-out";
-          }
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busId]);
 
-          // Update speed randomly for realism
-          setBusSpeed(Math.floor(40 + Math.random() * 15));
-        }
-
-        return next;
-      });
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, []);
+  const eta = Math.max(1, Math.round((1 - prog) * 28));
 
   return (
     <div className="app-layout">
       <Sidebar />
-
-      <main
-        className="main-content"
-        style={{ overflow: "hidden", height: "100vh", position: "relative" }}
-      >
+      <main className="main-content" style={{ overflow: "hidden", height: "100vh", position: "relative" }}>
         <TopAppBar title="Live Tracking" />
 
-        {/* Mapbox Container */}
-        <div
-          ref={mapContainer}
-          style={{
-            position: "absolute",
-            top: "64px",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: "100%",
-            height: "calc(100vh - 64px)",
-            zIndex: 0,
-          }}
-        />
+        <div ref={mapContainer} style={{ position: "absolute", inset: 0, top: 64, zIndex: 0 }} />
 
-        {/* Glass Sidebar Panel */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "absolute",
-            top: "88px",
-            left: "280px",
-            width: "380px",
-            maxHeight: "calc(100vh - 112px)",
-            borderRadius: "var(--radius-xl)",
-            padding: "1.5rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.5rem",
-            overflowY: "auto",
-            zIndex: 10,
-          }}
-        >
-          {/* Bus Info Card */}
-          <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                marginBottom: "1rem",
-              }}
-            >
-              <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "var(--radius-lg)",
-                  background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-container))",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={{
-                    fontSize: "28px",
-                    color: "white",
-                    fontVariationSettings: "'FILL' 1",
-                  }}
-                >
-                  directions_bus
-                </span>
-              </div>
-              <div>
-                <p
-                  style={{
-                    fontSize: "0.6875rem",
-                    fontWeight: 700,
-                    color: "var(--color-on-surface-variant)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  Route 882
-                </p>
-                <h3
-                  style={{
-                    fontSize: "1.125rem",
-                    fontWeight: 700,
-                    color: "var(--color-on-surface)",
-                  }}
-                >
-                  Colombo - Piliyandala
-                </h3>
-              </div>
+        {/* Info panel */}
+        <div className="glass-panel" style={{ position: "absolute", top: 88, left: 280, width: 360, maxHeight: "calc(100vh - 112px)", borderRadius: "var(--radius-xl)", padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem", overflowY: "auto", zIndex: 10 }}>
+
+          {/* Bus header */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <div style={{ width: 52, height: 52, borderRadius: "var(--radius-lg)", background: route.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 28, color: "white", fontVariationSettings: "'FILL' 1" }}>directions_bus</span>
             </div>
-
-            {/* Live Stats */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0.75rem",
-              }}
-            >
-              <div
-                style={{
-                  backgroundColor: "var(--color-surface-container)",
-                  padding: "0.75rem",
-                  borderRadius: "var(--radius-lg)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  <div className="live-dot" style={{ width: "6px", height: "6px" }} />
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      fontWeight: 700,
-                      color: "var(--color-on-surface-variant)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    Speed
-                  </span>
-                </div>
-                <p
-                  style={{
-                    fontSize: "1.5rem",
-                    fontWeight: 700,
-                    color: "var(--color-on-surface)",
-                  }}
-                >
-                  {busSpeed} <span style={{ fontSize: "0.875rem" }}>km/h</span>
-                </p>
-              </div>
-              <div
-                style={{
-                  backgroundColor: "var(--color-surface-container)",
-                  padding: "0.75rem",
-                  borderRadius: "var(--radius-lg)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    marginBottom: "0.25rem",
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: "14px",
-                      color: "var(--color-on-surface-variant)",
-                    }}
-                  >
-                    explore
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      fontWeight: 700,
-                      color: "var(--color-on-surface-variant)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                    }}
-                  >
-                    Bearing
-                  </span>
-                </div>
-                <p
-                  style={{
-                    fontSize: "1.5rem",
-                    fontWeight: 700,
-                    color: "var(--color-on-surface)",
-                  }}
-                >
-                  {Math.round(bearing)}°
-                </p>
-              </div>
+            <div>
+              <p style={{ fontSize: "0.6875rem", fontWeight: 700, color: "var(--color-on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>
+                Route {bus.number} · <span style={{ color: bus.status === "active" ? "#16a34a" : "#ef4444" }}>{bus.status === "active" ? "On Time" : "Delayed"}</span>
+              </p>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--color-on-surface)" }}>{route.name}</h3>
+              <p style={{ fontSize: "0.8125rem", color: "var(--color-on-surface-variant)", marginTop: 2 }}>Driver: {bus.driverName}</p>
             </div>
           </div>
 
-          {/* Stops List */}
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.625rem" }}>
+            {[
+              { label: "ETA",     value: `${eta} min`, icon: "schedule"  },
+              { label: "Speed",   value: `${speed} km/h`, icon: "speed"  },
+              { label: "Load",    value: `${bus.occupancyPct}%`, icon: "groups" },
+            ].map(({ label, value, icon }) => (
+              <div key={label} style={{ background: "var(--color-surface-container)", padding: "0.75rem", borderRadius: "var(--radius-lg)", textAlign: "center" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: "var(--color-on-surface-variant)" }}>{icon}</span>
+                <p style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-on-surface)", margin: "0.25rem 0 0.125rem" }}>{value}</p>
+                <p style={{ fontSize: "0.625rem", fontWeight: 700, color: "var(--color-on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Stops list */}
           <div>
-            <h4
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                color: "var(--color-on-surface-variant)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                marginBottom: "0.75rem",
-              }}
-            >
-              Route Stops
-            </h4>
+            <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>Route Stops</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {STOPS.map((stop, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "1rem",
-                    padding: "0.75rem",
-                    backgroundColor:
-                      stop.state === "current"
-                        ? "rgba(0, 74, 198, 0.08)"
-                        : "var(--color-surface-container)",
-                    borderRadius: "var(--radius-lg)",
-                    opacity: stop.state === "passed" ? 0.6 : 1,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      backgroundColor:
-                        stop.state === "passed"
-                          ? "#16a34a"
-                          : stop.state === "current"
-                          ? "var(--color-primary)"
-                          : "var(--color-surface-container-high)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{
-                        fontSize: "16px",
-                        color:
-                          stop.state === "passed" || stop.state === "current"
-                            ? "white"
-                            : "var(--color-on-surface-variant)",
-                        fontVariationSettings:
-                          stop.state === "passed" ? "'FILL' 1" : "'FILL' 0",
-                      }}
-                    >
-                      {stop.state === "passed" ? "check" : "radio_button_unchecked"}
-                    </span>
+              {route.stops.map((stop, i) => {
+                const state = getStopState(i, route.stops.length, prog);
+                const label = stopTimeLabel(i, route.stops.length, prog);
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.875rem", padding: "0.75rem",
+                    background: state === "current" ? `${route.color}12` : "var(--color-surface-container)",
+                    borderRadius: "var(--radius-lg)", opacity: state === "passed" ? 0.5 : 1,
+                    borderLeft: state === "current" ? `3px solid ${route.color}` : "3px solid transparent" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: state === "passed" ? "#94a3b8" : state === "current" ? route.color : "var(--color-surface-container-high)" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 15, color: state === "upcoming" ? "var(--color-on-surface-variant)" : "white", fontVariationSettings: state === "passed" ? "'FILL' 1" : "'FILL' 0" }}>
+                        {state === "passed" ? "check" : "radio_button_unchecked"}
+                      </span>
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 600, fontSize: "0.9375rem", color: "var(--color-on-surface)", marginBottom: 2 }}>{stop.name}</p>
+                      <p style={{ fontSize: "0.8125rem", color: "var(--color-on-surface-variant)" }}>{label}</p>
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        fontWeight: 700,
-                        color: "var(--color-on-surface)",
-                        marginBottom: "0.125rem",
-                      }}
-                    >
-                      {stop.name}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "var(--color-on-surface-variant)",
-                      }}
-                    >
-                      {stop.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
+
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>Loading map…</div>}>
+      <TrackingContent />
+    </Suspense>
   );
 }
