@@ -1,4 +1,9 @@
 import { io, Socket } from 'socket.io-client';
+import type {
+  SocketClient,
+  SocketEventHandler,
+  SocketEventMap,
+} from './socketTypes';
 
 export type BusLocation = {
   busId: string;
@@ -61,20 +66,26 @@ class SocketService {
    * Listen to an event from the server
    * Added null safety check to avoid silent failures
    */
-  on<T>(event: string, cb: (data: T) => void) {
+  on<K extends keyof SocketEventMap>(
+    event: K,
+    cb: SocketEventHandler<K>
+  ) {
     if (!this.socket) {
       console.warn(`[Socket] Cannot listen to "${event}" - socket not initialized`);
       return;
     }
-    this.socket.on(event, cb);
+    this.socket.on(event, cb as never);
   }
 
   /**
    * Remove event listener
    */
-  off(event: string, cb?: (...args: unknown[]) => void) {
+  off<K extends keyof SocketEventMap>(
+    event: K,
+    cb?: SocketEventHandler<K>
+  ) {
     if (!this.socket) return;
-    this.socket.off(event, cb);
+    this.socket.off(event, cb as never);
   }
 
   /**
@@ -109,4 +120,4 @@ class SocketService {
 }
 
 // Export singleton instance
-export const socketService = new SocketService();
+export const socketService: SocketClient = new SocketService();

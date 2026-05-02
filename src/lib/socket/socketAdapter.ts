@@ -1,21 +1,23 @@
-// Single source of truth for socket layer (mock vs real backend)
+// socketAdapter.ts
 
 import { mockSimulator } from './mockSimulator';
 import { socketService } from './socketService';
+import type { SocketClient } from './socketTypes';
 
-// Default to mock in development for safety
+// Decide mode based on env
 const USE_MOCK =
-  process.env.NEXT_PUBLIC_USE_MOCK_SOCKET?.toLowerCase() === 'true' || true;
+  process.env.NEXT_PUBLIC_USE_MOCK_SOCKET?.toLowerCase() === 'true';
 
-// Log current mode once at startup
+// Log mode
 console.log(
   `[Socket] Running in ${USE_MOCK ? 'MOCK MODE' : 'REAL BACKEND MODE'}`
 );
 
-// Export unified socket interface used across the app
-export const socketClient = USE_MOCK ? mockSimulator : socketService;
+// Unified socket instance
+export const socket: SocketClient = USE_MOCK ? mockSimulator : socketService;
 
-Object.freeze(socketClient);
+// Prevent accidental mutation
+Object.freeze(socket);
 
-// Shared type for tracking data consistency across app
-export type { BusLocation } from './socketService.ts';
+// Shared type
+export type { BusLocation } from './socketService';

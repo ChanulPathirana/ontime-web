@@ -1,15 +1,9 @@
+import type {
+  SocketClient,
+  SocketEventHandler,
+  SocketEventMap,
+} from './socketTypes';
 import type { BusLocation } from './socketService';
-
-/**
- * Strongly typed event map (🔥 big upgrade)
- */
-type Events = {
-  connect: { id: string };
-  disconnect: string;
-  'bus:location': BusLocation;
-};
-
-type Handler<T = unknown> = (data: T) => void;
 
 /**
  * Initial mock buses (Colombo area)
@@ -24,7 +18,7 @@ const INITIAL_BUSES: BusLocation[] = [
  * Mock socket simulator (acts like a fake backend)
  */
 class MockSocketSimulator {
-  private handlers = new Map<keyof Events, Set<Handler>>();
+  private handlers = new Map<keyof SocketEventMap, Set<SocketEventHandler<any>>>();
   private buses: BusLocation[] = JSON.parse(JSON.stringify(INITIAL_BUSES)); // safer than structuredClone
   private interval: ReturnType<typeof setInterval> | null = null;
   private _connected = false;
@@ -43,7 +37,7 @@ class MockSocketSimulator {
     setTimeout(() => {
       this._connected = true;
 
-      this._emit('connect', { id: 'mock-socket-id' });
+      this._emit('connect', undefined);
 
       this._startSimulation();
     }, 350);
@@ -86,31 +80,52 @@ class MockSocketSimulator {
   /**
    * Subscribe to event (typed)
    */
-  on<K extends keyof Events>(event: K, handler: Handler<Events[K]>) {
+  on<K extends keyof SocketEventMap>(
+    event: K,
+    handler: SocketEventHandler<K>
+  ) {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, new Set());
     }
 
-    this.handlers.get(event)!.add(handler as Handler);
+    this.handlers.get(event)!.add(handler as SocketEventHandler<any>);
   }
 
   /**
    * Unsubscribe from event
    */
-  off<K extends keyof Events>(event: K, handler?: Handler<Events[K]>) {
+  off<K extends keyof SocketEventMap>(
+    event: K,
+    handler?: SocketEventHandler<K>
+  ) {
     if (!this.handlers.has(event)) return;
 
     if (handler) {
-      this.handlers.get(event)!.delete(handler as Handler);
+      this.handlers.get(event)!.delete(handler as SocketEventHandler<any>);
     } else {
       this.handlers.delete(event);
     }
   }
 
   /**
+   * Emit event to the fake backend
+   */
+  emit(event: string, data?: unknown) {
+    if (event === 'bus:location' && data) {
+      this._emit('bus:location', data as BusLocation);
+      return;
+    }
+
+    console.warn(`[MockSocket] Ignoring emit("${event}") in simulator`);
+  }
+
+  /**
    * Emit event internally
    */
-  private _emit<K extends keyof Events>(event: K, data: Events[K]) {
+  private _emit<K extends keyof SocketEventMap>(
+    event: K,
+    data: SocketEventMap[K]
+  ) {
     this.handlers.get(event)?.forEach((handler) => {
       handler(data);
     });
@@ -145,4 +160,4 @@ class MockSocketSimulator {
 }
 
 // Singleton export
-export const mockSimulator = new MockSocketSimulator();
+export const mockSimulator: SocketClient = new MockSocketSimulator();
