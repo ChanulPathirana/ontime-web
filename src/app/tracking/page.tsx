@@ -24,10 +24,13 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
 
 function TrackingContent() {
   const searchParams = useSearchParams();
-  const busId = searchParams.get("bus") ?? "1";
-  const bus = BUSES[busId] ?? BUSES["1"];
+  // const busId = searchParams.get("bus") ?? "1";
+  // const bus = BUSES[busId] ?? BUSES["1"];
+  const rawBusId = searchParams.get("bus")?.toUpperCase() ?? "BUS-01"; // Convert BUS-01 -> 1 for static UI data lookup
+  const localBusId = rawBusId.replace("BUS-0", "");
+  const bus = BUSES[localBusId] ?? BUSES["1"];
   const route = TRANSIT_ROUTES[bus.routeId];
-
+  const busId = localBusId;
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const busMarker = useRef<mapboxgl.Marker | null>(null);
@@ -40,8 +43,13 @@ function TrackingContent() {
   const { buses, connectionStatus } = useBusTracking();
 
   // URL param uses "1","2","3" — socket bus IDs are "BUS-01","BUS-02","BUS-03"
-  const socketBusId = `BUS-0${busId}`;
+  // const socketBusId = `BUS-0${busId}`;
+  const socketBusId = rawBusId;
   const liveBus = buses.get(socketBusId);
+  // Debug logs
+  console.log("Socket Bus ID:", socketBusId);
+  console.log("Available buses:", Array.from(buses.keys()));
+  console.log("Live bus:", liveBus);
 
   // Convert occupancy string → percentage for the existing stats UI
   const liveOccupancyPct =
