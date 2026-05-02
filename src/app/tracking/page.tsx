@@ -42,15 +42,21 @@ function TrackingContent() {
   const liveBus = buses.get(rawBusId);
   const isWaitingForLiveData = connectionStatus === "connected" && !liveBus;
 
+  // ── BUG 1 FIX: stable ref so animation loop never restarts on socket tick ─
+  // liveBus is kept in a ref; the interval reads liveBusRef.current which is
+  // always fresh without liveBus appearing in the dep array.
+  const liveBusRef = useRef(liveBus);
+  useEffect(() => { liveBusRef.current = liveBus; }, [liveBus]);
+
   useEffect(() => {
     if (!liveBus) return;
     console.log("[Tracking] Live update:", liveBus);
   }, [liveBus]);
 
   // ── Derived values: liveBus preferred, static bus as fallback ────────────
-  const liveStatus  = liveBus?.status     ?? bus.status;
-  const liveRoute   = liveBus?.routeId    ?? bus.number;
-  const liveName    = liveBus?.driverName ?? bus.driverName;
+  const liveStatus = liveBus?.status     ?? bus.status;
+  const liveRoute  = liveBus?.routeId    ?? bus.number;
+  const liveName   = liveBus?.driverName ?? bus.driverName;
 
   const liveOccupancyPct =
     liveBus?.occupancy === "high"   ? 88 :
@@ -144,14 +150,18 @@ function TrackingContent() {
   }, [localBusId]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
+  // Reads liveBusRef.current (not liveBus directly) so the interval is only
+  // created/torn-down when localBusId changes — never on every socket tick.
+  // This eliminates the 1.6 s marker stutter caused by the old dep array.
   useEffect(() => {
     const id = setInterval(() => {
       progress.current = (progress.current + 0.0035) % 1;
       const p = progress.current;
 
-      // Prefer live socket position; fall back to interpolation
-      const pos: [number, number] = liveBus
-        ? [liveBus.lng, liveBus.lat]
+      const live = liveBusRef.current; // always fresh, no re-mount needed
+
+      const pos: [number, number] = live
+        ? [live.lng, live.lat]
         : interpolate(route.path, p);
       const brg = getBearing(route.path, p);
 
@@ -169,12 +179,12 @@ function TrackingContent() {
         });
       }
 
-      setSpeed(liveBus ? Math.round(liveBus.speed) : Math.floor(36 + Math.random() * 18));
-      if (!liveBus) setProg(p);
+      setSpeed(live ? Math.round(live.speed) : Math.floor(36 + Math.random() * 18));
+      if (!live) setProg(p);
     }, 100);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localBusId, liveBus]);
+  }, [localBusId]); // ← liveBus removed; ref handles updates silently
 
   return (
     <div className="app-layout">
@@ -212,7 +222,7 @@ function TrackingContent() {
           </div>
         )}
 
-        {/* ── Info panel (original design, live data) ──────────────────────── */}
+        {/* ── Info panel ───────────────────────────────────────────────────── */}
         <div
           className="glass-panel"
           style={{
@@ -275,9 +285,9 @@ function TrackingContent() {
           {/* ── Stats ───────────────────────────────────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.625rem" }}>
             {[
-              { label: "ETA",   value: `${liveEta} min`,  icon: "schedule" },
-              { label: "Speed", value: `${liveSpd} km/h`, icon: "speed"    },
-              { label: "Load",  value: `${liveOccupancyPct}%`, icon: "groups" },
+              { label: "ETA",   value: `${liveEta} min`,       icon: "schedule" },
+              { label: "Speed", value: `${liveSpd} km/h`,      icon: "speed"    },
+              { label: "Load",  value: `${liveOccupancyPct}%`, icon: "groups"   },
             ].map(({ label, value, icon }) => (
               <div key={label} style={{
                 background: "var(--color-surface-container)",
@@ -323,7 +333,6 @@ function TrackingContent() {
               {route.stops.map((stop, i) => {
                 const state = getStopState(i, route.stops.length, prog);
                 const label = stopTimeLabel(i, route.stops.length, prog);
-
                 return (
                   <div key={i} style={{
                     display: "flex", alignItems: "flex-start", gap: "0.875rem",
