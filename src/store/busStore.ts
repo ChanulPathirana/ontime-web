@@ -46,7 +46,9 @@ export const useBusStore = create<BusStore>((set, get) => ({
         existing.lng === bus.lng &&
         existing.speed === bus.speed &&
         existing.heading === bus.heading &&
-        existing.occupancy === bus.occupancy
+        existing.occupancy === bus.occupancy &&
+        existing.status   === bus.status   &&   // ← add
+        existing.eta      === bus.eta           // ← add
       ) {
         return {}; // no state change → no re-render
       }

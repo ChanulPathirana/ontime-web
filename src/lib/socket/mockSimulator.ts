@@ -5,10 +5,31 @@ import type {
   SocketEventMap,
 } from './socketTypes';
 
+// const INITIAL_BUSES: BusLocation[] = [
+//   { busId: 'BUS-01', routeId: 'R138', lat: 6.930, lng: 79.851, speed: 32, heading: 60,  timestamp: Date.now(), occupancy: 'low'    },
+//   { busId: 'BUS-02', routeId: 'R154', lat: 6.918, lng: 79.862, speed: 25, heading: 135, timestamp: Date.now(), occupancy: 'medium' },
+//   { busId: 'BUS-03', routeId: 'R120', lat: 6.944, lng: 79.841, speed: 0,  heading: 0,   timestamp: Date.now(), occupancy: 'high'   },
+// ];
+
 const INITIAL_BUSES: BusLocation[] = [
-  { busId: 'BUS-01', routeId: 'R138', lat: 6.930, lng: 79.851, speed: 32, heading: 60,  timestamp: Date.now(), occupancy: 'low'    },
-  { busId: 'BUS-02', routeId: 'R154', lat: 6.918, lng: 79.862, speed: 25, heading: 135, timestamp: Date.now(), occupancy: 'medium' },
-  { busId: 'BUS-03', routeId: 'R120', lat: 6.944, lng: 79.841, speed: 0,  heading: 0,   timestamp: Date.now(), occupancy: 'high'   },
+  {
+    busId: 'BUS-01', routeId: 'R138',
+    lat: 6.930, lng: 79.851, speed: 32, heading: 60,
+    timestamp: Date.now(), occupancy: 'low',
+    status: 'active', driverName: 'Kamal Perera', eta: 8,
+  },
+  {
+    busId: 'BUS-02', routeId: 'R154',
+    lat: 6.918, lng: 79.862, speed: 25, heading: 135,
+    timestamp: Date.now(), occupancy: 'medium',
+    status: 'active', driverName: 'Nimal Silva', eta: 14,
+  },
+  {
+    busId: 'BUS-03', routeId: 'R120',
+    lat: 6.944, lng: 79.841, speed: 0, heading: 0,
+    timestamp: Date.now(), occupancy: 'high',
+    status: 'delayed', driverName: 'Suresh Fernando', eta: 22,
+  },
 ];
 
 type AnyHandler = (data: unknown) => void;
@@ -88,6 +109,7 @@ class MockSocketSimulator implements SocketClient {
       speed:    Math.max(0, Math.min(60, bus.speed + (Math.random() - 0.5) * 5)),
       heading:  newHeading,
       timestamp: Date.now(),
+      eta: Math.max(1, bus.eta - 1),
     };
   };
 

@@ -14,6 +14,9 @@ export type BusLocation = {
   heading: number;       // 0–360 degrees
   timestamp: number;     // epoch ms
   occupancy: 'low' | 'medium' | 'high';
+  status: 'active' | 'delayed';   // ← add
+  driverName: string;              // ← add
+  eta: number;              // minutes until next stop ← add
 };
 
 /**
