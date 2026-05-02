@@ -16,6 +16,9 @@ import {
   stopTimeLabel,
 } from "@/lib/transitData";
 
+// ── Socket integration ───────────────────────────────────────────────────────
+import { useBusTracking } from "@/hooks/useBusTracking";
+
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
 
@@ -33,7 +36,22 @@ function TrackingContent() {
   const [speed, setSpeed] = useState(42);
   const [prog, setProg] = useState(bus.initProgress);
 
-  // ── Map init ────────────────────────────────────────────────────────────────
+  // ── Socket state ─────────────────────────────────────────────────────────
+  const { buses, connectionStatus } = useBusTracking();
+
+  // URL param uses "1","2","3" — socket bus IDs are "BUS-01","BUS-02","BUS-03"
+  const socketBusId = `BUS-0${busId}`;
+  const liveBus = buses.get(socketBusId);
+
+  // Convert occupancy string → percentage for the existing stats UI
+  const liveOccupancyPct =
+    liveBus?.occupancy === "high"
+      ? 88
+      : liveBus?.occupancy === "medium"
+        ? 55
+        : 25;
+
+  // ── Map init ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
     if (!HAS_MAPBOX_TOKEN) return;
@@ -146,16 +164,21 @@ function TrackingContent() {
       map.current?.remove();
       map.current = null;
     };
-    // eslint-disable name/exhaustive-deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busId]);
 
-  // ── Animation loop ──────────────────────────────────────────────────────────
+  // ── Animation loop ─────────────────────────────────────────────────────────
   useEffect(() => {
     const id = setInterval(() => {
       progress.current = (progress.current + 0.0035) % 1;
       const p = progress.current;
-      const pos = interpolate(route.path, p);
+
+      // Use live GPS from socket when available; fall back to interpolated path
+      // This means if the socket drops, the map keeps animating rather than freezing
+      const pos: [number, number] = liveBus
+        ? [liveBus.lng, liveBus.lat]
+        : interpolate(route.path, p);
+
       const brg = getBearing(route.path, p);
 
       busMarker.current?.setLngLat(pos);
@@ -166,7 +189,7 @@ function TrackingContent() {
         duration: 200,
       });
 
-      // Update route split
+      // Route split still uses interpolated progress (visual only)
       if (map.current?.isStyleLoaded()) {
         const { passed, ahead } = splitPath(route.path, p);
         (map.current.getSource("passed") as mapboxgl.GeoJSONSource)?.setData({
@@ -181,13 +204,18 @@ function TrackingContent() {
         });
       }
 
-      setSpeed(Math.floor(36 + Math.random() * 18));
+      // Real speed from socket when available; random fallback for mock/animation
+      setSpeed(
+        liveBus
+          ? Math.round(liveBus.speed)
+          : Math.floor(36 + Math.random() * 18),
+      );
       setProg(p);
     }, 100);
 
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busId]);
+  }, [busId, liveBus]);
 
   const eta = Math.max(1, Math.round((1 - prog) * 28));
 
@@ -268,6 +296,46 @@ function TrackingContent() {
               </span>
             </div>
             <div>
+              {/* ── Connection status badge ──────────────────────────────── */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  marginBottom: 4,
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background:
+                      connectionStatus === "connected"
+                        ? "#16a34a"
+                        : connectionStatus === "connecting"
+                          ? "#f59e0b"
+                          : "#ef4444",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: "0.625rem",
+                    color: "var(--color-on-surface-variant)",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {connectionStatus === "connected"
+                    ? process.env.NEXT_PUBLIC_USE_MOCK_SOCKET === "true"
+                      ? "Mock live"
+                      : "Live"
+                    : connectionStatus}
+                </span>
+              </div>
+
               <p
                 style={{
                   fontSize: "0.6875rem",
@@ -319,7 +387,12 @@ function TrackingContent() {
             {[
               { label: "ETA", value: `${eta} min`, icon: "schedule" },
               { label: "Speed", value: `${speed} km/h`, icon: "speed" },
-              { label: "Load", value: `${bus.occupancyPct}%`, icon: "groups" },
+              {
+                label: "Load",
+                // Use live occupancy from socket if available, else static data
+                value: `${liveBus ? liveOccupancyPct : bus.occupancyPct}%`,
+                icon: "groups",
+              },
             ].map(({ label, value, icon }) => (
               <div
                 key={label}

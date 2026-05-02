@@ -16,8 +16,5 @@ console.log(
 // Unified socket instance
 export const socket: SocketClient = USE_MOCK ? mockSimulator : socketService;
 
-// Prevent accidental mutation
-Object.freeze(socket);
-
 // Shared type
 export type { BusLocation } from './socketService';
