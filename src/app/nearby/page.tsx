@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
+import { fetchRoutes } from "@/services/api";
 
 interface BusRoute {
   id: string;
@@ -17,69 +18,6 @@ interface BusRoute {
   type: string;
 }
 
-const ALL_BUS_ROUTES: BusRoute[] = [
-  {
-    id: "1",
-    number: "882",
-    name: "Colombo - Piliyandala",
-    destination: "Piliyandala",
-    status: "active",
-    eta: "4 mins",
-    etaColor: "var(--color-primary)",
-    type: "Standard AC",
-  },
-  {
-    id: "2",
-    number: "120",
-    name: "Pettah - Kesbewa",
-    destination: "Kesbewa",
-    status: "delayed",
-    eta: "12 mins",
-    etaColor: "var(--color-error)",
-    type: "Express",
-  },
-  {
-    id: "3",
-    number: "138",
-    name: "Fort - Maharagama",
-    destination: "Maharagama",
-    status: "active",
-    eta: "7 mins",
-    etaColor: "var(--color-primary)",
-    type: "Regular",
-  },
-  {
-    id: "4",
-    number: "204",
-    name: "Borella - Panadura",
-    destination: "Panadura",
-    status: "active",
-    eta: "9 mins",
-    etaColor: "var(--color-primary)",
-    type: "Semi-Express",
-  },
-  {
-    id: "5",
-    number: "882",
-    name: "Colombo - Maharagama",
-    destination: "Maharagama",
-    status: "active",
-    eta: "6 mins",
-    etaColor: "var(--color-primary)",
-    type: "Standard AC",
-  },
-  {
-    id: "6",
-    number: "138",
-    name: "Fort - Piliyandala",
-    destination: "Piliyandala",
-    status: "active",
-    eta: "8 mins",
-    etaColor: "var(--color-primary)",
-    type: "Regular",
-  },
-];
-
 const SORT_OPTIONS = ["Shortest ETA", "Distance", "Route Number"];
 
 function NearbyBusesContent() {
@@ -88,13 +26,35 @@ function NearbyBusesContent() {
   const routeParam = searchParams.get("route");
   const stopParam = searchParams.get("stop");
 
+  const [allRoutes, setAllRoutes] = useState<BusRoute[]>([]);
   const [destinationFilter, setDestinationFilter] = useState("");
   const [sortOption, setSortOption] = useState(0);
 
+  useEffect(() => {
+    fetchRoutes()
+      .then((data) => {
+        const mapped: BusRoute[] = data.map((r) => {
+          const parts = r.name.split(" - ");
+          return {
+            id: String(r.id),
+            number: r.route_number ?? String(r.id),
+            name: r.name,
+            destination: r.destination ?? parts[1]?.trim() ?? parts[0] ?? r.name,
+            status: "active" as const,
+            eta: "--",
+            etaColor: "var(--color-primary)",
+            type: "Bus",
+          };
+        });
+        setAllRoutes(mapped);
+      })
+      .catch(() => {});
+  }, []);
+
   // Filter buses by route parameter
   let filteredBuses = routeParam
-    ? ALL_BUS_ROUTES.filter((bus) => bus.number === routeParam)
-    : ALL_BUS_ROUTES;
+    ? allRoutes.filter((bus) => bus.number === routeParam)
+    : allRoutes;
 
   // Filter by destination
   if (destinationFilter.trim()) {

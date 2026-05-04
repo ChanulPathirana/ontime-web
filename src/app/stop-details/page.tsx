@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
+import { fetchStopRoutes } from "@/services/api";
 
 interface Route {
   id: string;
@@ -12,39 +14,28 @@ interface Route {
   frequency: string;
 }
 
-const ROUTES_DATA: { [key: string]: Route[] } = {
-  "1": [
-    { id: "882", number: "882", name: "Colombo - Piliyandala", frequency: "Every 10 mins" },
-    { id: "120", number: "120", name: "Pettah - Kesbewa", frequency: "Every 15 mins" },
-    { id: "138", number: "138", name: "Fort - Maharagama", frequency: "Every 12 mins" },
-  ],
-  "2": [
-    { id: "120", number: "120", name: "Pettah - Kesbewa", frequency: "Every 15 mins" },
-    { id: "204", number: "204", name: "Borella - Panadura", frequency: "Every 20 mins" },
-    { id: "138", number: "138", name: "Fort - Maharagama", frequency: "Every 12 mins" },
-  ],
-  "3": [
-    { id: "882", number: "882", name: "Colombo - Piliyandala", frequency: "Every 10 mins" },
-    { id: "204", number: "204", name: "Borella - Panadura", frequency: "Every 20 mins" },
-  ],
-  "4": [
-    { id: "138", number: "138", name: "Fort - Maharagama", frequency: "Every 12 mins" },
-    { id: "204", number: "204", name: "Borella - Panadura", frequency: "Every 20 mins" },
-    { id: "120", number: "120", name: "Pettah - Kesbewa", frequency: "Every 15 mins" },
-  ],
-  "5": [
-    { id: "882", number: "882", name: "Colombo - Piliyandala", frequency: "Every 10 mins" },
-    { id: "138", number: "138", name: "Fort - Maharagama", frequency: "Every 12 mins" },
-  ],
-};
-
 function StopDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const stopId = searchParams.get("id") || "1";
   const stopName = searchParams.get("name") || "Central Station";
 
-  const routes = ROUTES_DATA[stopId] || [];
+  const [routes, setRoutes] = useState<Route[]>([]);
+
+  useEffect(() => {
+    fetchStopRoutes(stopId)
+      .then((data) =>
+        setRoutes(
+          data.map((r) => ({
+            id: String(r.id),
+            number: r.route_number ?? String(r.id),
+            name: r.name,
+            frequency: "--",
+          })),
+        ),
+      )
+      .catch(() => {});
+  }, [stopId]);
 
   const handleRouteSelect = (routeNumber: string) => {
     router.push(`/nearby?route=${routeNumber}&stop=${stopName}`);

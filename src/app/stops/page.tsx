@@ -7,12 +7,13 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
 import { TRANSIT_ROUTES } from "@/lib/transitData";
+import { fetchAllStops } from "@/services/api";
 
 const DEFAULT_CENTER: [number, number] = [79.8612, 6.9271];
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
 
-// Build a deduplicated stop list from all routes
+// Build a deduplicated stop list from static transit routes (fallback)
 interface MappedStop {
   id: string;
   name: string;
@@ -20,7 +21,7 @@ interface MappedStop {
   routes: string[];
 }
 
-function buildStops(): MappedStop[] {
+function buildStopsFromStatic(): MappedStop[] {
   const map = new Map<string, MappedStop>();
   Object.values(TRANSIT_ROUTES).forEach((route) => {
     route.stops.forEach((stop) => {
@@ -40,7 +41,7 @@ function buildStops(): MappedStop[] {
   return Array.from(map.values());
 }
 
-const BUS_STOPS = buildStops();
+const STATIC_STOPS = buildStopsFromStatic();
 
 function stopDot(selected: boolean): HTMLDivElement {
   const el = document.createElement("div");
@@ -64,9 +65,26 @@ export default function BusStopsPage() {
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const markerEls = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  const [stops, setStops] = useState<MappedStop[]>(STATIC_STOPS);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    fetchAllStops()
+      .then((data) => {
+        const mapped: MappedStop[] = data
+          .filter((s) => s.coordinates)
+          .map((s) => ({
+            id: String(s.id),
+            name: s.name,
+            coordinates: s.coordinates as [number, number],
+            routes: s.routes,
+          }));
+        if (mapped.length > 0) setStops(mapped);
+      })
+      .catch(() => {});
+  }, []);
 
   function requestLocation() {
     if (!navigator.geolocation) return;
@@ -137,7 +155,7 @@ export default function BusStopsPage() {
         .addTo(m);
 
       // Stop markers
-      BUS_STOPS.forEach((stop) => {
+      stops.forEach((stop) => {
         const el = stopDot(false);
         markerEls.current.set(stop.id, el);
         new mapboxgl.Marker({ element: el, anchor: "center" })
@@ -167,7 +185,7 @@ export default function BusStopsPage() {
 
   function selectStop(id: string) {
     setSelectedStop(id);
-    const stop = BUS_STOPS.find((s) => s.id === id);
+    const stop = stops.find((s) => s.id === id);
     if (stop && map.current) {
       map.current.flyTo({
         center: stop.coordinates,
@@ -177,7 +195,7 @@ export default function BusStopsPage() {
     }
   }
 
-  const filtered = BUS_STOPS.filter((s) =>
+  const filtered = stops.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
