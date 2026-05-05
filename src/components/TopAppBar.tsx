@@ -1,21 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import NotificationPanel from "./NotificationPanel";
 
 interface TopAppBarProps {
   title?: string;
   showSearch?: boolean;
+  unreadCount?: number;
+  onUnreadChange?: (count: number) => void;
 }
-
-const UNREAD_COUNT = 4; // static initial badge count
 
 export default function TopAppBar({
   title = "Transit Flow",
   showSearch = false,
 }: TopAppBarProps) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  function handleRefresh() {
+    router.refresh();
+    window.location.reload();
+  }
 
   return (
     <>
@@ -79,7 +87,7 @@ export default function TopAppBar({
 
         {/* ── Action Buttons ── */}
         <div className="top-bar-actions">
-          <button className="icon-btn" aria-label="Refresh">
+          <button className="icon-btn" aria-label="Refresh" onClick={handleRefresh}>
             <span
               className="material-symbols-outlined"
               style={{ fontSize: "22px" }}
@@ -112,7 +120,7 @@ export default function TopAppBar({
               notifications
             </span>
             {/* Unread badge — hides when panel is open */}
-            {UNREAD_COUNT > 0 && !panelOpen && (
+            {unreadCount > 0 && !panelOpen && (
               <span
                 style={{
                   position: "absolute",
@@ -134,24 +142,20 @@ export default function TopAppBar({
                   pointerEvents: "none",
                 }}
               >
-                {UNREAD_COUNT}
+                {unreadCount}
               </span>
             )}
           </button>
 
-          <button className="icon-btn" aria-label="Account">
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: "22px" }}
-            >
-              account_circle
-            </span>
-          </button>
         </div>
       </header>
 
       {/* Notification slide-in panel */}
-      <NotificationPanel open={panelOpen} onClose={() => setPanelOpen(false)} />
+      <NotificationPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        onUnreadChange={setUnreadCount}
+      />
     </>
   );
 }

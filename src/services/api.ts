@@ -67,3 +67,28 @@ export const searchRoutes = (
   apiFetch<ApiRouteSearch>(
     `/api/v1/routes/search?start_lat=${startLat}&start_lon=${startLon}&end_lat=${endLat}&end_lon=${endLon}&radius_m=${radius}`,
   );
+
+// ── Bus endpoints ─────────────────────────────────────────────────────────────
+
+export type ApiBusResponse = {
+  id: string;
+  fleet_code: string;
+  plate_number: string;
+  status: string;
+  route_id: string | null;
+  capacity: number | null;
+};
+
+export type ApiLiveBusResponse = ApiBusResponse & {
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export const fetchLiveBuses = () =>
+  apiFetch<ApiLiveBusResponse[]>('/api/v1/buses/live');
+
+export const fetchBusesByRoute = (routeId: string | number) =>
+  apiFetch<ApiBusResponse[]>(`/api/v1/buses/route/${routeId}`);
+
+export const fetchBus = (busId: string | number) =>
+  apiFetch<ApiBusResponse>(`/api/v1/buses/${busId}`);

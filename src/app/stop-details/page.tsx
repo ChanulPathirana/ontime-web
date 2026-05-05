@@ -30,15 +30,15 @@ function StopDetailsContent() {
             id: String(r.id),
             number: r.route_number ?? String(r.id),
             name: r.name,
-            frequency: "--",
+            frequency: "Check live board",
           })),
         ),
       )
       .catch(() => {});
   }, [stopId]);
 
-  const handleRouteSelect = (routeNumber: string) => {
-    router.push(`/nearby?route=${routeNumber}&stop=${stopName}`);
+  const handleRouteSelect = (routeNumber: string, routeDbId: string) => {
+    router.push(`/nearby?route=${routeNumber}&routeId=${routeDbId}&stop=${stopName}`);
   };
 
   return (
@@ -194,7 +194,7 @@ function StopDetailsContent() {
             {routes.map((route) => (
               <button
                 key={route.id}
-                onClick={() => handleRouteSelect(route.number)}
+                onClick={() => handleRouteSelect(route.number, route.id)}
                 className="card"
                 style={{
                   padding: "1.5rem",

@@ -6,7 +6,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
-import { TRANSIT_ROUTES } from "@/lib/transitData";
+import { searchRoutes, fetchAllTransitRoutes } from "@/services/api";
 
 const DEFAULT_CENTER: [number, number] = [79.8612, 6.9271];
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
@@ -20,6 +20,9 @@ export default function RoutesPage() {
 
   const [locating, setLocating] = useState(false);
   const [originLabel, setOriginLabel] = useState("Current Location");
+  const [destinationLabel, setDestinationLabel] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const userCoords = useRef<[number, number] | null>(null);
 
   function flyToUser(lng: number, lat: number) {
     userMarker.current?.setLngLat([lng, lat]);
@@ -32,6 +35,7 @@ export default function RoutesPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         flyToUser(pos.coords.longitude, pos.coords.latitude);
+        userCoords.current = [pos.coords.longitude, pos.coords.latitude];
         setOriginLabel("My Location");
         setLocating(false);
       },
@@ -40,9 +44,49 @@ export default function RoutesPage() {
     );
   }
 
+  async function handleSearch() {
+    // If no destination, just go to stops page
+    if (!destinationLabel.trim()) {
+      router.push("/stops");
+      return;
+    }
+    // If no user location yet, go to stops
+    if (!userCoords.current) {
+      router.push("/stops");
+      return;
+    }
+    // Geocode destination using Mapbox if token available
+    if (!HAS_MAPBOX_TOKEN) {
+      router.push("/stops");
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const geoRes = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationLabel)}.json?access_token=${MAPBOX_TOKEN}&country=LK&limit=1`,
+      );
+      const geoData = await geoRes.json();
+      const [destLng, destLat] = geoData.features?.[0]?.center ?? [];
+      if (!destLng || !destLat) {
+        router.push("/stops");
+        return;
+      }
+      const [originLng, originLat] = userCoords.current;
+      const result = await searchRoutes(originLat, originLng, destLat, destLng);
+      if (result.count > 0) {
+        const ids = result.routes.map((r) => r.route_id).join(",");
+        router.push(`/nearby?routeIds=${ids}&stop=${encodeURIComponent(originLabel)}`);
+      } else {
+        router.push("/stops");
+      }
+    } catch {
+      router.push("/stops");
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
-    if (!HAS_MAPBOX_TOKEN) return;
 
     mapboxgl.accessToken = MAPBOX_TOKEN!;
 
@@ -57,49 +101,52 @@ export default function RoutesPage() {
     map.current.on("load", () => {
       const m = map.current!;
 
-      // Draw each route as a coloured line
-      Object.values(TRANSIT_ROUTES).forEach((route) => {
-        m.addSource(`route-${route.id}`, {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "LineString", coordinates: route.path },
-          },
-        });
-        m.addLayer({
-          id: `route-${route.id}`,
-          type: "line",
-          source: `route-${route.id}`,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": route.color,
-            "line-width": 3,
-            "line-opacity": 0.75,
-          },
-        });
-      });
+      // Draw routes from API
+      fetchAllTransitRoutes()
+        .then((routesMap) => {
+          Object.values(routesMap).forEach((route) => {
+            if (!route.path?.length) return;
+            m.addSource(`route-${route.id}`, {
+              type: "geojson",
+              data: {
+                type: "Feature",
+                properties: {},
+                geometry: { type: "LineString", coordinates: route.path },
+              },
+            });
+            m.addLayer({
+              id: `route-${route.id}`,
+              type: "line",
+              source: `route-${route.id}`,
+              layout: { "line-join": "round", "line-cap": "round" },
+              paint: {
+                "line-color": route.color || "#004ac6",
+                "line-width": 3,
+                "line-opacity": 0.75,
+              },
+            });
 
-      // Stop markers
-      const seen = new Set<string>();
-      Object.values(TRANSIT_ROUTES).forEach((route) => {
-        route.stops.forEach((stop) => {
-          const key = stop.coordinates.join(",");
-          if (seen.has(key)) return;
-          seen.add(key);
-          const el = document.createElement("div");
-          el.style.cssText =
-            "width:10px;height:10px;border-radius:50%;background:white;border:2.5px solid #004ac6;box-shadow:0 1px 4px rgba(0,74,198,0.3)";
-          new mapboxgl.Marker({ element: el })
-            .setLngLat(stop.coordinates)
-            .setPopup(
-              new mapboxgl.Popup({ offset: 10, closeButton: false }).setText(
-                stop.name,
-              ),
-            )
-            .addTo(m);
-        });
-      });
+            // Stop markers
+            const seen = new Set<string>();
+            route.stops?.forEach((stop) => {
+              const key = stop.coordinates.join(",");
+              if (seen.has(key)) return;
+              seen.add(key);
+              const el = document.createElement("div");
+              el.style.cssText =
+                "width:10px;height:10px;border-radius:50%;background:white;border:2.5px solid #004ac6;box-shadow:0 1px 4px rgba(0,74,198,0.3)";
+              new mapboxgl.Marker({ element: el })
+                .setLngLat(stop.coordinates)
+                .setPopup(
+                  new mapboxgl.Popup({ offset: 10, closeButton: false }).setText(
+                    stop.name,
+                  ),
+                )
+                .addTo(m);
+            });
+          });
+        })
+        .catch(() => {});
 
       // User dot
       const userEl = document.createElement("div");
@@ -260,6 +307,9 @@ export default function RoutesPage() {
                     type="text"
                     className="input-field"
                     placeholder="Destination"
+                    value={destinationLabel}
+                    onChange={(e) => setDestinationLabel(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
 
@@ -285,14 +335,15 @@ export default function RoutesPage() {
                 <button
                   className="btn-primary"
                   style={{ marginTop: "0.25rem" }}
-                  onClick={() => router.push("/stops")}
+                  onClick={handleSearch}
+                  disabled={isSearching}
                 >
-                  Search Route
+                  {isSearching ? "Searching…" : "Search Route"}
                   <span
                     className="material-symbols-outlined"
                     style={{ fontSize: "20px" }}
                   >
-                    arrow_forward
+                    {isSearching ? "progress_activity" : "arrow_forward"}
                   </span>
                 </button>
               </div>

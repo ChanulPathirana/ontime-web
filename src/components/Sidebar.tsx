@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { href: "/nearby",        icon: "directions_bus", label: "Bus Routes"     },
   { href: "/tracking",      icon: "map",            label: "Live Tracking"  },
   { href: "/notifications", icon: "notifications",  label: "Alerts"         },
-  { href: "/profile",       icon: "person",         label: "Profile"        },
 ];
 
 export default function Sidebar() {
@@ -44,12 +43,7 @@ export default function Sidebar() {
         })}
       </ul>
 
-      <div className="sidebar-footer">
-        <Link href="/profile" className="nav-link">
-          <span className="material-symbols-outlined" style={{ fontSize: "22px" }}>account_circle</span>
-          <span>My Account</span>
-        </Link>
-      </div>
+
     </nav>
   );
 }
