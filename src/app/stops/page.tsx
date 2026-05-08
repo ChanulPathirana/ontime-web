@@ -8,6 +8,13 @@ import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
 import { fetchAllStops, fetchNearbyStops } from "@/services/api";
 
+type MappedStop = {
+  id: string;
+  name: string;
+  coordinates: [number, number];
+  routes: string[];
+};
+
 const DEFAULT_CENTER: [number, number] = [79.8612, 6.9271];
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
