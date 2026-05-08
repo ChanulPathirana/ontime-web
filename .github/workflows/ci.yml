@@ -215,9 +215,13 @@ jobs:
           echo "IMAGE=${image}" >> "$GITHUB_ENV"
 
           if [ "${{ github.event_name }}" = "push" ]; then
-            docker buildx build --push -t "$image" .
+            docker buildx build --push \
+              --build-arg NEXT_PUBLIC_MAPBOX_TOKEN="${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}" \
+              -t "$image" .
           else
-            docker buildx build --load -t "$image" .
+            docker buildx build --load \
+              --build-arg NEXT_PUBLIC_MAPBOX_TOKEN="${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}" \
+              -t "$image" .
           fi
 
       - name: Install Trivy
