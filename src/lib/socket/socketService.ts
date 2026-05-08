@@ -87,6 +87,7 @@ class SocketService {
       this.reconnectAttempts++;
       console.log(`[Socket] Reconnecting... (${this.reconnectAttempts}/${this.maxReconnects})`);
       this._open();
+      this._dispatch('reconnect', this.reconnectAttempts);
     }, delay);
   }
 
