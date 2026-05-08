@@ -90,6 +90,7 @@ export default function RoutesPage() {
 
     mapboxgl.accessToken = MAPBOX_TOKEN!;
 
+    if (!mapContainer.current) return;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/streets-v12",
