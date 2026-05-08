@@ -6,41 +6,13 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
-import { TRANSIT_ROUTES } from "@/lib/transitData";
+import { fetchAllStops, fetchNearbyStops } from "@/services/api";
 
 const DEFAULT_CENTER: [number, number] = [79.8612, 6.9271];
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
 const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
 
-// Build a deduplicated stop list from all routes
-interface MappedStop {
-  id: string;
-  name: string;
-  coordinates: [number, number];
-  routes: string[];
-}
-
-function buildStops(): MappedStop[] {
-  const map = new Map<string, MappedStop>();
-  Object.values(TRANSIT_ROUTES).forEach((route) => {
-    route.stops.forEach((stop) => {
-      const key = stop.name;
-      if (map.has(key)) {
-        map.get(key)!.routes.push(route.number);
-      } else {
-        map.set(key, {
-          id: key,
-          name: stop.name,
-          coordinates: stop.coordinates,
-          routes: [route.number],
-        });
-      }
-    });
-  });
-  return Array.from(map.values());
-}
-
-const BUS_STOPS = buildStops();
+// ─────────────────────────────────────────────────────────────────────────────
 
 function stopDot(selected: boolean): HTMLDivElement {
   const el = document.createElement("div");
@@ -64,9 +36,28 @@ export default function BusStopsPage() {
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const markerEls = useRef<Map<string, HTMLDivElement>>(new Map());
 
+  const [stops, setStops] = useState<MappedStop[]>([]);
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [locating, setLocating] = useState(false);
+  const [nearbyMode, setNearbyMode] = useState(false);
+  const mapLoaded = useRef(false);
+
+  useEffect(() => {
+    fetchAllStops()
+      .then((data) => {
+        const mapped: MappedStop[] = data
+          .filter((s) => s.coordinates)
+          .map((s) => ({
+            id: String(s.id),
+            name: s.name,
+            coordinates: s.coordinates as [number, number],
+            routes: s.routes,
+          }));
+        if (mapped.length > 0) setStops(mapped);
+      })
+      .catch(() => {});
+  }, []);
 
   function requestLocation() {
     if (!navigator.geolocation) return;
@@ -80,6 +71,23 @@ export default function BusStopsPage() {
           zoom: 15,
           duration: 900,
         });
+        // Load stops near the user
+        fetchNearbyStops(latitude, longitude, 1500)
+          .then((data) => {
+            const mapped: MappedStop[] = data
+              .filter((s) => s.coordinates)
+              .map((s) => ({
+                id: String(s.id),
+                name: s.name,
+                coordinates: s.coordinates as [number, number],
+                routes: s.routes,
+              }));
+            if (mapped.length > 0) {
+              setStops(mapped);
+              setNearbyMode(true);
+            }
+          })
+          .catch(() => {});
         setLocating(false);
       },
       () => setLocating(false),
@@ -104,29 +112,7 @@ export default function BusStopsPage() {
 
     map.current.on("load", () => {
       const m = map.current!;
-
-      // Draw route lines for context
-      Object.values(TRANSIT_ROUTES).forEach((route) => {
-        m.addSource(`route-${route.id}`, {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: { type: "LineString", coordinates: route.path },
-          },
-        });
-        m.addLayer({
-          id: `route-${route.id}`,
-          type: "line",
-          source: `route-${route.id}`,
-          layout: { "line-join": "round", "line-cap": "round" },
-          paint: {
-            "line-color": route.color,
-            "line-width": 2.5,
-            "line-opacity": 0.5,
-          },
-        });
-      });
+      mapLoaded.current = true;
 
       // User dot
       const userEl = document.createElement("div");
@@ -135,16 +121,6 @@ export default function BusStopsPage() {
       userMarker.current = new mapboxgl.Marker({ element: userEl })
         .setLngLat(DEFAULT_CENTER)
         .addTo(m);
-
-      // Stop markers
-      BUS_STOPS.forEach((stop) => {
-        const el = stopDot(false);
-        markerEls.current.set(stop.id, el);
-        new mapboxgl.Marker({ element: el, anchor: "center" })
-          .setLngLat(stop.coordinates)
-          .addTo(m);
-        el.addEventListener("click", () => selectStop(stop.id));
-      });
 
       requestLocation();
     });
@@ -165,9 +141,31 @@ export default function BusStopsPage() {
     });
   }, [selectedStop]);
 
+  // Add/update map markers whenever stops list changes (API fetch or nearby)
+  useEffect(() => {
+    if (!map.current || !mapLoaded.current) return;
+    // Remove old markers
+    markerEls.current.forEach((el) => {
+      // mapboxgl markers are removed by calling .remove() on the Marker instance
+      // We stored only the element, so detach from DOM directly
+      el.parentElement?.remove();
+    });
+    markerEls.current.clear();
+    // Add new markers
+    stops.forEach((stop) => {
+      const el = stopDot(stop.id === selectedStop);
+      markerEls.current.set(stop.id, el);
+      new mapboxgl.Marker({ element: el, anchor: "center" })
+        .setLngLat(stop.coordinates)
+        .addTo(map.current!);
+      el.addEventListener("click", () => selectStop(stop.id));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stops]);
+
   function selectStop(id: string) {
     setSelectedStop(id);
-    const stop = BUS_STOPS.find((s) => s.id === id);
+    const stop = stops.find((s) => s.id === id);
     if (stop && map.current) {
       map.current.flyTo({
         center: stop.coordinates,
@@ -177,7 +175,7 @@ export default function BusStopsPage() {
     }
   }
 
-  const filtered = BUS_STOPS.filter((s) =>
+  const filtered = stops.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -309,8 +307,40 @@ export default function BusStopsPage() {
                 color: "var(--color-on-surface)",
               }}
             >
-              Nearby Stops
+              {nearbyMode ? "Stops Near You" : "Nearby Stops"}
             </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {nearbyMode && (
+                <button
+                  onClick={() => {
+                    setNearbyMode(false);
+                    fetchAllStops()
+                      .then((data) => {
+                        const mapped: MappedStop[] = data
+                          .filter((s) => s.coordinates)
+                          .map((s) => ({
+                            id: String(s.id),
+                            name: s.name,
+                            coordinates: s.coordinates as [number, number],
+                            routes: s.routes,
+                          }));
+                        if (mapped.length > 0) setStops(mapped);
+                      })
+                      .catch(() => {});
+                  }}
+                  style={{
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    color: "var(--color-primary)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                  }}
+                >
+                  Show All
+                </button>
+              )}
             <span
               style={{
                 fontSize: "0.875rem",
@@ -320,6 +350,7 @@ export default function BusStopsPage() {
             >
               {filtered.length} found
             </span>
+            </div>
           </div>
 
           <div
@@ -427,11 +458,13 @@ export default function BusStopsPage() {
             <button
               className="btn-primary"
               style={{ width: "100%" }}
-              onClick={() =>
+              onClick={() => {
+                const stop = stops.find((s) => s.id === selectedStop);
+                const name = stop?.name ?? selectedStop;
                 router.push(
-                  `/stop-details?id=${encodeURIComponent(selectedStop)}&name=${encodeURIComponent(selectedStop)}`,
-                )
-              }
+                  `/stop-details?id=${encodeURIComponent(selectedStop)}&name=${encodeURIComponent(name)}`,
+                );
+              }}
             >
               View Available Buses
               <span

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
+import { fetchRoutes, fetchBusesByRoute } from "@/services/api";
 
 interface BusRoute {
   id: string;
@@ -17,69 +18,6 @@ interface BusRoute {
   type: string;
 }
 
-const ALL_BUS_ROUTES: BusRoute[] = [
-  {
-    id: "1",
-    number: "882",
-    name: "Colombo - Piliyandala",
-    destination: "Piliyandala",
-    status: "active",
-    eta: "4 mins",
-    etaColor: "var(--color-primary)",
-    type: "Standard AC",
-  },
-  {
-    id: "2",
-    number: "120",
-    name: "Pettah - Kesbewa",
-    destination: "Kesbewa",
-    status: "delayed",
-    eta: "12 mins",
-    etaColor: "var(--color-error)",
-    type: "Express",
-  },
-  {
-    id: "3",
-    number: "138",
-    name: "Fort - Maharagama",
-    destination: "Maharagama",
-    status: "active",
-    eta: "7 mins",
-    etaColor: "var(--color-primary)",
-    type: "Regular",
-  },
-  {
-    id: "4",
-    number: "204",
-    name: "Borella - Panadura",
-    destination: "Panadura",
-    status: "active",
-    eta: "9 mins",
-    etaColor: "var(--color-primary)",
-    type: "Semi-Express",
-  },
-  {
-    id: "5",
-    number: "882",
-    name: "Colombo - Maharagama",
-    destination: "Maharagama",
-    status: "active",
-    eta: "6 mins",
-    etaColor: "var(--color-primary)",
-    type: "Standard AC",
-  },
-  {
-    id: "6",
-    number: "138",
-    name: "Fort - Piliyandala",
-    destination: "Piliyandala",
-    status: "active",
-    eta: "8 mins",
-    etaColor: "var(--color-primary)",
-    type: "Regular",
-  },
-];
-
 const SORT_OPTIONS = ["Shortest ETA", "Distance", "Route Number"];
 
 function NearbyBusesContent() {
@@ -87,14 +25,69 @@ function NearbyBusesContent() {
   const searchParams = useSearchParams();
   const routeParam = searchParams.get("route");
   const stopParam = searchParams.get("stop");
+  const routeId = searchParams.get("routeId");         // DB route id — for fleet bus fetch
+  const routeIdsParam = searchParams.get("routeIds");  // comma list — from home page search
 
+  const [allRoutes, setAllRoutes] = useState<BusRoute[]>([]);
   const [destinationFilter, setDestinationFilter] = useState("");
   const [sortOption, setSortOption] = useState(0);
 
+  // When a specific routeId is known, fetch actual fleet buses assigned to that route
+  useEffect(() => {
+    if (!routeId) return;
+    fetchBusesByRoute(routeId)
+      .then((buses) => {
+        if (buses.length === 0) return; // fall back to route list
+        const mapped: BusRoute[] = buses.map((b) => ({
+          id: b.id,
+          number: b.fleet_code,
+          name: `Bus ${b.fleet_code} · ${b.plate_number}`,
+          destination: routeParam ? `Route ${routeParam}` : "Route service",
+          status: (b.status === "active" ? "active" : "delayed") as "active" | "delayed",
+          eta: "Live",
+          etaColor: "#16a34a",
+          type: `Capacity: ${b.capacity ?? "--"}`,
+        }));
+        setAllRoutes(mapped);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId]);
+
+  // Fallback: load all routes (used when no specific routeId, e.g. browsing all buses)
+  useEffect(() => {
+    if (routeId) return; // already loading from fleet
+    fetchRoutes()
+      .then((data) => {
+        const mapped: BusRoute[] = data.map((r) => {
+          const parts = r.name.split(" - ");
+          return {
+            id: String(r.id),
+            number: r.route_number ?? String(r.id),
+            name: r.name,
+            destination: r.destination ?? parts[1]?.trim() ?? parts[0] ?? r.name,
+            status: "active" as const,
+            eta: "Live",
+            etaColor: "#16a34a",
+            type: "Bus",
+          };
+        });
+        setAllRoutes(mapped);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId]);
+
   // Filter buses by route parameter
   let filteredBuses = routeParam
-    ? ALL_BUS_ROUTES.filter((bus) => bus.number === routeParam)
-    : ALL_BUS_ROUTES;
+    ? allRoutes.filter((bus) => bus.number === routeParam)
+    : allRoutes;
+
+  // When home page search returned specific route IDs, filter to those
+  if (routeIdsParam && !routeId) {
+    const ids = new Set(routeIdsParam.split(","));
+    filteredBuses = allRoutes.filter((bus) => ids.has(bus.id));
+  }
 
   // Filter by destination
   if (destinationFilter.trim()) {
@@ -105,20 +98,27 @@ function NearbyBusesContent() {
 
   // Sort buses
   const sortedBuses = [...filteredBuses].sort((a, b) => {
-    if (sortOption === 0) {
-      // Shortest ETA
-      return parseInt(a.eta) - parseInt(b.eta);
-    } else if (sortOption === 1) {
-      // Distance (use ETA as proxy)
-      return parseInt(a.eta) - parseInt(b.eta);
+    if (sortOption === 0 || sortOption === 1) {
+      const ea = parseInt(a.eta);
+      const eb = parseInt(b.eta);
+      if (isNaN(ea) && isNaN(eb)) return 0;
+      if (isNaN(ea)) return 1;
+      if (isNaN(eb)) return -1;
+      return ea - eb;
     } else {
-      // Route Number
-      return a.number.localeCompare(b.number);
+      return a.number.localeCompare(b.number, undefined, { numeric: true });
     }
   });
 
   const handleSelectBus = (busId: string) => {
-    router.push(`/tracking?bus=${busId}`);
+    const bus = allRoutes.find((b) => b.id === busId);
+    const routeNum = bus?.number ?? busId;
+    // When coming from fleet (routeId present), pass the fleet bus id directly
+    const busParam = routeId
+      ? `${busId}`
+      : `BUS-${routeNum.padStart(2, "0")}`;
+    const routeDbParam = routeId ? `&routeDbId=${routeId}` : "";
+    router.push(`/tracking?bus=${busParam}&route=${routeNum}${routeDbParam}`);
   };
   return (
     <div className="app-layout">
@@ -309,12 +309,23 @@ function NearbyBusesContent() {
               <div
                 key={route.id}
                 className="card"
+                onClick={() => handleSelectBus(route.id)}
                 style={{
                   padding: "1.5rem",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   opacity: route.status === "delayed" ? 0.9 : 1,
+                  cursor: "pointer",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-elevated)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.transform = "";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "";
                 }}
               >
                 {/* Left: Route Info */}
@@ -416,15 +427,19 @@ function NearbyBusesContent() {
 
                 {/* CTA */}
                 <button
-                  onClick={() => handleSelectBus(route.id)}
+                  onClick={(e) => { e.stopPropagation(); handleSelectBus(route.id); }}
                   className="btn-primary"
                   style={{
                     width: "auto",
                     padding: "0.75rem 1.5rem",
                     fontSize: "0.9375rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
                   }}
                 >
-                  Select Bus
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>directions_bus</span>
+                  Track Bus
                 </button>
               </div>
             ))

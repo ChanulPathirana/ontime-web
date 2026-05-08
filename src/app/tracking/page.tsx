@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useRef, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Sidebar from "@/components/Sidebar";
 import TopAppBar from "@/components/TopAppBar";
 import {
-  BUSES,
-  TRANSIT_ROUTES,
   interpolate,
   getBearing,
   splitPath,
   getStopState,
   stopTimeLabel,
+  type TransitRoute,
 } from "@/lib/transitData";
+import { fetchAllTransitRoutes, fetchLiveBuses } from "@/services/api";
 import { useBusTracking } from "@/hooks/useBusTracking";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
@@ -22,25 +22,84 @@ const HAS_MAPBOX_TOKEN = Boolean(MAPBOX_TOKEN);
 function TrackingContent() {
   const searchParams = useSearchParams();
 
-  // rawBusId = "BUS-01" (from socket), localBusId = "1" (for static BUSES map)
-  const rawBusId   = searchParams.get("bus")?.toUpperCase() ?? "BUS-01";
-  const localBusId = rawBusId.replace("BUS-0", "");
+  // rawBusId from URL (e.g. "1" or "BUS-01"), activeBusId is resolved from REST/socket
+  const rawBusId   = searchParams.get("bus")?.toUpperCase() ?? "";
+  const localBusId = rawBusId.replace(/^BUS-0*/i, "");
+  const routeParam = searchParams.get("route") ?? "";
+  const routeDbId  = searchParams.get("routeDbId") ?? "";
+  const hasSelection = Boolean(routeParam || rawBusId);
 
-  const bus   = BUSES[localBusId] ?? BUSES["1"];
-  const route = TRANSIT_ROUTES[bus.routeId];
+  // activeBusId is set to the real backend busId once the REST snapshot resolves it;
+  // this ensures buses.get(activeBusId) stays in sync with WebSocket updates.
+  const [activeBusId, setActiveBusId] = useState(rawBusId);
+
+  const [route, setRoute] = useState<TransitRoute | null>(null);
+  const router = useRouter();
+
+  // Fetch real route geometry from the API
+  useEffect(() => {
+    if (!routeParam) return;
+    fetchAllTransitRoutes()
+      .then((all) => {
+        const found = Object.values(all).find(
+          (r) => r.number === routeParam || r.id === routeParam,
+        );
+        if (found && found.path?.length > 1) {
+          setRoute(found as TransitRoute);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeParam]);
 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map          = useRef<mapboxgl.Map | null>(null);
   const busMarker    = useRef<mapboxgl.Marker | null>(null);
-  const progress     = useRef(bus.initProgress);
+  const progress     = useRef(0);
 
   const [speed, setSpeed] = useState(42);
-  const [prog,  setProg]  = useState(bus.initProgress);
+  const [prog,  setProg]  = useState(0);
 
-  // ── Live socket data ──────────────────────────────────────────────────────
-  const { buses, connectionStatus } = useBusTracking();
-  const liveBus = buses.get(rawBusId);
+  // ── Live socket data ─────────────────────────────────────────────
+  const { buses, connectionStatus, updateBus } = useBusTracking();
+  // activeBusId is the real backend busId resolved from REST snapshot;
+  // it matches the key WebSocket updates use (e.g. "1") so live data wires up.
+  const liveBus = buses.get(activeBusId);
   const isWaitingForLiveData = connectionStatus === "connected" && !liveBus;
+
+  // ── REST snapshot: seed live bus data before socket fires ──────────────────
+  useEffect(() => {
+    fetchLiveBuses()
+      .then((all) => {
+        const match = all.find(
+          (b) =>
+            String(b.id) === rawBusId ||
+            b.fleet_code?.toUpperCase() === rawBusId ||
+            (routeDbId && String(b.route_id) === routeDbId),
+        );
+        if (match?.latitude != null && match?.longitude != null) {
+          // Use the actual backend busId (DB integer as string) so the Zustand
+          // key matches what WebSocket messages send (e.g. "1", not "BUS-01").
+          const resolvedId = String(match.id);
+          setActiveBusId(resolvedId);
+          updateBus({
+            busId: resolvedId,
+            routeId: routeParam || String(match.route_id ?? ""),
+            lat: match.latitude,
+            lng: match.longitude,
+            speed: 0,
+            heading: 0,
+            timestamp: Date.now(),
+            occupancy: "medium",
+            status: match.status === "active" ? "active" : "delayed",
+            driverName: match.fleet_code ?? "",
+            eta: 0,
+          });
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawBusId, routeDbId]);
 
   // ── BUG 1 FIX: stable ref so animation loop never restarts on socket tick ─
   // liveBus is kept in a ref; the interval reads liveBusRef.current which is
@@ -54,9 +113,9 @@ function TrackingContent() {
   }, [liveBus]);
 
   // ── Derived values: liveBus preferred, static bus as fallback ────────────
-  const liveStatus = liveBus?.status     ?? bus.status;
-  const liveRoute  = liveBus?.routeId    ?? bus.number;
-  const liveName   = liveBus?.driverName ?? bus.driverName;
+  const liveStatus = liveBus?.status     ?? "active";
+  const liveRoute  = liveBus?.routeId    ?? routeParam;
+  const liveName   = liveBus?.driverName ?? "";
 
   const liveOccupancyPct =
     liveBus?.occupancy === "high"   ? 88 :
@@ -68,11 +127,12 @@ function TrackingContent() {
 
   // ── Map init ──────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!route) return; // no route selected yet
     if (!mapContainer.current || map.current) return;
     if (!HAS_MAPBOX_TOKEN) return;
 
     mapboxgl.accessToken = MAPBOX_TOKEN!;
-    const startPos = interpolate(route.path, bus.initProgress);
+    const startPos = interpolate(route.path, 0);
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -129,16 +189,30 @@ function TrackingContent() {
 
       // Bus marker
       const busEl = document.createElement("div");
-      busEl.style.cssText = "width:40px;height:40px;cursor:pointer";
+      busEl.style.cssText = "width:52px;height:52px;cursor:pointer";
       busEl.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 40 40" fill="none"
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          style="filter:drop-shadow(0 2px 8px rgba(0,0,0,0.35))">
-          <circle cx="20" cy="20" r="18" fill="${route.color}"/>
-          <rect x="12" y="13" width="16" height="12" rx="2" fill="white"/>
-          <rect x="14" y="14" width="4" height="3" rx="1" fill="${route.color}"/>
-          <rect x="22" y="14" width="4" height="3" rx="1" fill="${route.color}"/>
-          <path d="M20 4 L23 9 L20 7.5 L17 9 Z" fill="white" opacity="0.9"/>
+          style="filter:drop-shadow(0 4px 12px rgba(0,0,0,0.45))">
+          <!-- Pulse ring -->
+          <circle cx="26" cy="26" r="25" fill="${route.color}" opacity="0.18"/>
+          <!-- Body -->
+          <rect x="10" y="14" width="32" height="22" rx="5" fill="${route.color}"/>
+          <!-- Roof highlight -->
+          <rect x="12" y="14" width="28" height="7" rx="3" fill="white" opacity="0.2"/>
+          <!-- Windows row -->
+          <rect x="14" y="17" width="6" height="5" rx="1.5" fill="white" opacity="0.9"/>
+          <rect x="23" y="17" width="6" height="5" rx="1.5" fill="white" opacity="0.9"/>
+          <rect x="32" y="17" width="6" height="5" rx="1.5" fill="white" opacity="0.9"/>
+          <!-- Door -->
+          <rect x="21" y="27" width="10" height="9" rx="1.5" fill="white" opacity="0.35"/>
+          <!-- Wheels -->
+          <circle cx="17" cy="37" r="4" fill="#1e293b"/>
+          <circle cx="17" cy="37" r="2" fill="#94a3b8"/>
+          <circle cx="35" cy="37" r="4" fill="#1e293b"/>
+          <circle cx="35" cy="37" r="2" fill="#94a3b8"/>
+          <!-- Direction arrow on top -->
+          <path d="M26 3 L30 10 L26 8 L22 10 Z" fill="${route.color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
         </svg>`;
       busMarker.current = new mapboxgl.Marker({
         element: busEl, rotationAlignment: "map", pitchAlignment: "map",
@@ -147,27 +221,27 @@ function TrackingContent() {
 
     return () => { map.current?.remove(); map.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localBusId]);
+  }, [route?.id]);
 
   // ── Animation loop ────────────────────────────────────────────────────────
   // Reads liveBusRef.current (not liveBus directly) so the interval is only
   // created/torn-down when localBusId changes — never on every socket tick.
   // This eliminates the 1.6 s marker stutter caused by the old dep array.
   useEffect(() => {
+    if (!route) return; // no route selected yet
     const id = setInterval(() => {
-      progress.current = (progress.current + 0.0035) % 1;
-      const p = progress.current;
-
       const live = liveBusRef.current; // always fresh, no re-mount needed
 
-      const pos: [number, number] = live
-        ? [live.lng, live.lat]
-        : interpolate(route.path, p);
+      // Only update marker when real live data exists — no fake movement
+      if (!live) return;
+
+      const pos: [number, number] = [live.lng, live.lat];
+      const p = progress.current;
       const brg = getBearing(route.path, p);
 
       busMarker.current?.setLngLat(pos);
       busMarker.current?.setRotation(brg);
-      map.current?.flyTo({ center: pos, zoom: map.current.getZoom(), duration: 200 });
+      map.current?.flyTo({ center: pos, zoom: map.current.getZoom(), duration: 800 });
 
       if (map.current?.isStyleLoaded()) {
         const { passed, ahead } = splitPath(route.path, p);
@@ -179,12 +253,31 @@ function TrackingContent() {
         });
       }
 
-      setSpeed(live ? Math.round(live.speed) : Math.floor(36 + Math.random() * 18));
-      if (!live) setProg(p);
-    }, 100);
+      setSpeed(Math.round(live.speed));
+    }, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localBusId]); // ← liveBus removed; ref handles updates silently
+  }, [route?.id]); // ← liveBus removed; ref handles updates silently
+
+  // ── No route selected — show empty state ────────────────────────────────
+  if (!hasSelection || !route) {
+    return (
+      <div className="app-layout">
+        <Sidebar />
+        <main className="main-content" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
+          <div style={{ textAlign: "center", maxWidth: 400 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 72, color: "var(--color-outline-variant)", fontVariationSettings: "'FILL' 1" }}>directions_bus</span>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-on-surface)", margin: "1rem 0 0.5rem" }}>No Route Selected</h2>
+            <p style={{ color: "var(--color-on-surface-variant)", marginBottom: "1.5rem" }}>Please choose a bus stop and route to start live tracking.</p>
+            <button className="btn-primary" onClick={() => router.push("/stops")}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
+              Find a Stop
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-layout">

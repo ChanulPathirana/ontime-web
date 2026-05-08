@@ -108,5 +108,6 @@ export function useBusTracking() {
   return {
     buses,
     connectionStatus,
+    updateBus,
   };
 }
