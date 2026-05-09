@@ -174,24 +174,10 @@ export default function RoutesPage() {
         <TopAppBar title="On Time" />
 
         <div
-          className="page-enter"
-          style={{
-            paddingTop: "88px",
-            paddingLeft: "2rem",
-            paddingRight: "2rem",
-            paddingBottom: "3rem",
-            maxWidth: "1280px",
-            margin: "0 auto",
-          }}
+          className="page-enter page-content-padded"
+          style={{ maxWidth: "1280px", margin: "0 auto" }}
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "5fr 7fr",
-              gap: "2rem",
-              alignItems: "start",
-            }}
-          >
+          <div className="home-grid">
             {/* Search panel */}
             <div
               style={{
@@ -202,6 +188,7 @@ export default function RoutesPage() {
             >
               <div>
                 <h2
+                  className="home-headline"
                   style={{
                     fontSize: "2.5rem",
                     fontWeight: 800,
@@ -352,15 +339,7 @@ export default function RoutesPage() {
             </div>
 
             {/* Mapbox preview */}
-            <div
-              style={{
-                height: "600px",
-                borderRadius: "var(--radius-lg)",
-                position: "relative",
-                overflow: "hidden",
-                boxShadow: "var(--shadow-ambient)",
-              }}
-            >
+            <div className="home-map">
               {HAS_MAPBOX_TOKEN ? (
                 <div
                   ref={mapContainer}

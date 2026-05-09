@@ -151,15 +151,8 @@ export default function NotificationsPage() {
         <TopAppBar title="Service Alerts" />
 
         <div
-          className="page-enter"
-          style={{
-            paddingTop: "88px",
-            paddingLeft: "2rem",
-            paddingRight: "2rem",
-            paddingBottom: "3rem",
-            maxWidth: "800px",
-            margin: "0 auto",
-          }}
+          className="page-enter page-content-padded"
+          style={{ maxWidth: "800px", margin: "0 auto" }}
         >
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>

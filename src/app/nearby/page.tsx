@@ -134,6 +134,7 @@ function NearbyBusesContent() {
             minHeight: "calc(100vh - 64px)",
             backgroundColor: "var(--color-surface-container-low)",
             padding: "2rem",
+            boxSizing: "border-box",
           }}
         >
           {/* Breadcrumb */}
@@ -163,7 +164,7 @@ function NearbyBusesContent() {
             style={{
               marginBottom: "1.5rem",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "space-between",
               flexWrap: "wrap",
               gap: "1rem",
@@ -187,7 +188,7 @@ function NearbyBusesContent() {
             </div>
 
             {/* Sort Chips */}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div className="sort-chips">
               {SORT_OPTIONS.map((opt, i) => (
                 <button
                   key={opt}
@@ -308,17 +309,9 @@ function NearbyBusesContent() {
               sortedBuses.map((route) => (
               <div
                 key={route.id}
-                className="card"
+                className="card bus-card-row"
                 onClick={() => handleSelectBus(route.id)}
-                style={{
-                  padding: "1.5rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  opacity: route.status === "delayed" ? 0.9 : 1,
-                  cursor: "pointer",
-                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                }}
+                style={{ opacity: route.status === "delayed" ? 0.9 : 1 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
                   (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-elevated)";
@@ -428,7 +421,7 @@ function NearbyBusesContent() {
                 {/* CTA */}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSelectBus(route.id); }}
-                  className="btn-primary"
+                  className="btn-primary bus-card-cta"
                   style={{
                     width: "auto",
                     padding: "0.75rem 1.5rem",

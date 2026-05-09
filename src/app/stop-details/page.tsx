@@ -55,6 +55,7 @@ function StopDetailsContent() {
             minHeight: "calc(100vh - 64px)",
             backgroundColor: "var(--color-surface-container-low)",
             padding: "2rem",
+            boxSizing: "border-box",
           }}
         >
           {/* Back Button */}
@@ -74,7 +75,7 @@ function StopDetailsContent() {
 
           {/* Stop Header */}
           <div
-            className="card-lg"
+            className="card-lg stop-header"
             style={{
               padding: "2rem",
               marginBottom: "2rem",
@@ -187,7 +188,7 @@ function StopDetailsContent() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))",
               gap: "1rem",
             }}
           >

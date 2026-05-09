@@ -751,26 +751,272 @@ select {
 }
 
 /* =============================================
-   RESPONSIVE
+   BOTTOM NAVIGATION (mobile only)
+   ============================================= */
+
+.bottom-nav {
+  display: none;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+  flex: 1;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.bottom-nav-item.active {
+  color: var(--color-primary);
+}
+
+/* =============================================
+   RESPONSIVE LAYOUT CLASSES
+   ============================================= */
+
+/* Home page two-column grid */
+.home-grid {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+/* Home page map height */
+.home-map {
+  height: 600px;
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-ambient);
+}
+
+/* Shared page content padding */
+.page-content-padded {
+  padding-top: 88px;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 3rem;
+}
+
+/* Stops page — floating search bar */
+.stops-search-bar {
+  position: absolute;
+  top: 88px;
+  left: 280px;
+  right: 1.5rem;
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 10;
+}
+
+/* Stops page — stop list panel */
+.stops-list-panel {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 50px;
+  width: 360px;
+  max-height: calc(100vh - 200px);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+/* Tracking page — info panel */
+.tracking-info-panel {
+  position: absolute;
+  top: 88px;
+  right: 32px;
+  width: 360px;
+  max-height: calc(100vh - 112px);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+/* Sort chips row */
+.sort-chips {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Bus card row */
+.bus-card-row {
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Driver status grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+/* =============================================
+   RESPONSIVE — ≤768 px
    ============================================= */
 
 @media (max-width: 768px) {
+  /* Hide sidebar, show bottom nav */
   .sidebar {
     display: none;
   }
 
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background-color: #ffffff;
+    border-top: 1px solid #f1f5f9;
+    box-shadow: 0 -4px 16px rgba(25, 28, 29, 0.06);
+    z-index: 40;
+    align-items: center;
+  }
+
+  /* Top bar spans full width, tighter padding */
   .top-app-bar {
     width: 100%;
+    padding: 0 1rem;
+  }
+
+  /* Push scrollable content above bottom nav */
+  .main-content {
+    margin-left: 0;
+    padding-bottom: 64px;
+  }
+
+  /* Notification panel full-width */
+  aside[role="dialog"] {
+    width: 100% !important;
+  }
+
+  /* Home: stack search + map vertically */
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Home: shorter map on mobile */
+  .home-map {
+    height: 260px;
+  }
+
+  /* Reduce page padding */
+  .page-content-padded {
+    padding: 80px 1rem 1.5rem;
+  }
+
+  /* Stops search bar: flush to screen edges */
+  .stops-search-bar {
+    left: 1rem;
+    right: 1rem;
+    top: 72px;
+  }
+
+  /* Stops list: full-width bottom sheet above nav */
+  .stops-list-panel {
+    right: 0;
+    left: 0;
+    bottom: 64px;
+    width: 100%;
+    max-height: 42vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding: 1rem;
+  }
+
+  /* Tracking info: full-width bottom sheet above nav */
+  .tracking-info-panel {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 64px;
+    width: 100%;
+    max-height: 42vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  /* Sort chips: horizontal scroll */
+  .sort-chips {
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sort-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Sort chips — don't shrink */
+  .sort-chips > * {
+    flex-shrink: 0;
+  }
+
+  /* Driver status: 2 columns on tablet-sized mobile */
+  .status-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+/* =============================================
+   RESPONSIVE — ≤480 px (small phones)
+   ============================================= */
+
+@media (max-width: 480px) {
+  /* Bus card: stack info above CTA button */
+  .bus-card-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .bus-card-cta {
+    width: 100% !important;
+    justify-content: center;
+  }
+
+  /* Stop header: wrap icon + text */
+  .stop-header {
+    flex-wrap: wrap;
+  }
+
+  /* Driver status: single column on small phones */
+  .status-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Smaller headline on home */
+  .home-headline {
+    font-size: 1.75rem !important;
   }
 }
 
 /* =============================================
    NOTIFICATION PANEL
    ============================================= */
-
-/* Full-width panel on mobile */
-@media (max-width: 768px) {
-  aside[role="dialog"] {
-    width: 100% !important;
-  }
-}

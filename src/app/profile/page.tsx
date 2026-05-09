@@ -23,8 +23,8 @@ export default function ProfilePage() {
         <TopAppBar title="Profile" />
 
         <div
-          className="page-enter"
-          style={{ paddingTop: "88px", paddingLeft: "2rem", paddingRight: "2rem", paddingBottom: "3rem", maxWidth: "720px", margin: "0 auto" }}
+          className="page-enter page-content-padded"
+          style={{ maxWidth: "720px", margin: "0 auto" }}
         >
           {/* Avatar + name */}
           <div className="card-lg" style={{ padding: "2rem", display: "flex", alignItems: "center", gap: "1.5rem", marginBottom: "2rem" }}>
