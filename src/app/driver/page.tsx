@@ -39,15 +39,8 @@ export default function DriverStatusPage() {
         <TopAppBar title="Driver Status" />
 
         <div
-          className="page-enter"
-          style={{
-            paddingTop: "88px",
-            paddingLeft: "2rem",
-            paddingRight: "2rem",
-            paddingBottom: "3rem",
-            maxWidth: "960px",
-            margin: "0 auto",
-          }}
+          className="page-enter page-content-padded"
+          style={{ maxWidth: "960px", margin: "0 auto" }}
         >
           {/* Page Header */}
           <div style={{ marginBottom: "2rem" }}>
@@ -214,13 +207,7 @@ export default function DriverStatusPage() {
           </div>
 
           {/* Status Grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "1rem",
-            }}
-          >
+          <div className="status-grid">
             {STATUS_OPTIONS.map((option) => {
               const isSelected = activeStatus === option.id;
 

@@ -316,23 +316,7 @@ function TrackingContent() {
         )}
 
         {/* ── Info panel ───────────────────────────────────────────────────── */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "absolute",
-            top: 88,
-            right: 32,
-            width: 360,
-            maxHeight: "calc(100vh - 112px)",
-            borderRadius: "var(--radius-xl)",
-            padding: "1.5rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.25rem",
-            overflowY: "auto",
-            zIndex: 10,
-          }}
-        >
+        <div className="tracking-info-panel glass-panel">
           {/* ── Bus header ──────────────────────────────────────────────── */}
           <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
             <div style={{

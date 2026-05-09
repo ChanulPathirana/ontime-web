@@ -220,21 +220,7 @@ export default function BusStopsPage() {
         )}
 
         {/* Search bar */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "absolute",
-            top: 88,
-            left: 280,
-            right: "1.5rem",
-            borderRadius: "var(--radius-lg)",
-            padding: "0.75rem 1.25rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-            zIndex: 10,
-          }}
-        >
+        <div className="stops-search-bar glass-panel">
           <span
             className="material-symbols-outlined"
             style={{ color: "var(--color-outline)", fontSize: "20px" }}
@@ -283,23 +269,7 @@ export default function BusStopsPage() {
         </div>
 
         {/* Stop list panel */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "absolute",
-            bottom: "1.5rem",
-            right: 50,
-            width: 360,
-            maxHeight: "calc(100vh - 200px)",
-            borderRadius: "var(--radius-xl)",
-            padding: "1.5rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.875rem",
-            overflowY: "auto",
-            zIndex: 10,
-          }}
-        >
+        <div className="stops-list-panel glass-panel">
           <div
             style={{
               display: "flex",
