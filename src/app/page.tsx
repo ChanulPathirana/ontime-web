@@ -29,9 +29,28 @@ export default function RoutesPage() {
     map.current?.flyTo({ center: [lng, lat], zoom: 14, duration: 1000 });
   }
 
+  async function fetchLocationByIP() {
+    try {
+      const res = await fetch("https://ipapi.co/json/");
+      const data = await res.json();
+      if (data.latitude && data.longitude) {
+        flyToUser(data.longitude, data.latitude);
+        userCoords.current = [data.longitude, data.latitude];
+        setOriginLabel("My Location");
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLocating(false);
+    }
+  }
+
   function requestLocation() {
-    if (!navigator.geolocation) return;
     setLocating(true);
+    if (!navigator.geolocation) {
+      fetchLocationByIP();
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         flyToUser(pos.coords.longitude, pos.coords.latitude);
@@ -39,7 +58,7 @@ export default function RoutesPage() {
         setOriginLabel("My Location");
         setLocating(false);
       },
-      () => setLocating(false),
+      () => fetchLocationByIP(),
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }
