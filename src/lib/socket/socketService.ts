@@ -49,6 +49,15 @@ class SocketService {
     this.ws.onmessage = (event) => {
       try {
         const raw = JSON.parse(event.data as string);
+
+        if (raw.event === 'eta_update') {
+          this._dispatch('bus:eta', {
+            busId: String(raw.busId ?? raw.bus_id ?? ''),
+            eta:   Number(raw.eta_seconds ?? raw.eta ?? 0),
+          });
+          return;
+        }
+
         const location: BusLocation = {
           busId:      String(raw.busId ?? raw.bus_id ?? ''),
           routeId:    String(raw.routeId ?? raw.route_id ?? ''),
@@ -60,7 +69,7 @@ class SocketService {
           occupancy:  raw.occupancy ?? 'low',
           status:     raw.status ?? 'active',
           driverName: raw.driverName ?? 'Unknown',
-          eta:        Number(raw.eta ?? 0),
+          eta:        Number(raw.eta ?? raw.eta_seconds ?? 0),
         };
         this._dispatch('bus:location', location);
       } catch (e) {

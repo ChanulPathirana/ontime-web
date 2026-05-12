@@ -12,6 +12,7 @@ interface BusStore {
   lastUpdateAt: number;
 
   updateBus: (bus: BusLocation) => void;
+  patchEta: (busId: string, eta: number) => void;
   setStatus: (s: Status) => void;
   clearBuses: () => void;
 
@@ -62,6 +63,15 @@ export const useBusStore = create<BusStore>((set, get) => ({
       };
     });
   },
+
+  patchEta: (busId, eta) =>
+    set(({ buses }) => {
+      const existing = buses.get(busId);
+      if (!existing || existing.eta === eta) return {};
+      const next = new Map(buses);
+      next.set(busId, { ...existing, eta });
+      return { buses: next, lastUpdateAt: Date.now() };
+    }),
 
   /**
    * Update connection status (avoid redundant updates)

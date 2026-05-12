@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { socket, type BusLocation } from '@/lib/socket/socketAdapter';
+import type { BusEtaUpdate } from '@/lib/socket/socketTypes';
 import { useBusStore } from '@/store/busStore';
 
 /**
@@ -15,7 +16,7 @@ import { useBusStore } from '@/store/busStore';
  * - Safe for React Strict Mode
  */
 export function useBusTracking() {
-  const { updateBus, setStatus, buses, connectionStatus } = useBusStore();
+  const { updateBus, patchEta, setStatus, buses, connectionStatus } = useBusStore();
 
   // Prevent double execution in React Strict Mode (dev)
   const mounted = useRef(false);
@@ -28,6 +29,13 @@ export function useBusTracking() {
       updateBus(data);
     },
     [updateBus]
+  );
+
+  const onEta = useCallback(
+    (data: BusEtaUpdate) => {
+      patchEta(data.busId, data.eta);
+    },
+    [patchEta]
   );
 
   const onConnect = useCallback(() => {
@@ -69,6 +77,7 @@ export function useBusTracking() {
     socket.on('connect_error', onError);
     socket.on('reconnect', onConnect); // 🔥 handle reconnection
     socket.on('bus:location', onLocation);
+    socket.on('bus:eta', onEta);
 
     /**
      * Cleanup
@@ -77,6 +86,7 @@ export function useBusTracking() {
       console.log('[BusTracking] Cleaning up...');
 
       socket.off('bus:location', onLocation);
+      socket.off('bus:eta', onEta);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onError);

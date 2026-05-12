@@ -1,11 +1,17 @@
 import type { BusLocation } from './socketService';
 
+export type BusEtaUpdate = {
+  busId: string;
+  eta: number;
+};
+
 export type SocketEventMap = {
   connect: undefined;
   disconnect: string;
   connect_error: Error;
   reconnect: number;
   'bus:location': BusLocation;
+  'bus:eta': BusEtaUpdate;
 };
 
 export type SocketEventHandler<K extends keyof SocketEventMap> = (
