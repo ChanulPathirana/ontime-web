@@ -32,54 +32,63 @@ function NearbyBusesContent() {
   const [destinationFilter, setDestinationFilter] = useState("");
   const [sortOption, setSortOption] = useState(0);
 
-  // When a specific routeId is known, fetch actual fleet buses assigned to that route
   useEffect(() => {
-    if (!routeId) return;
-    fetchBusesByRoute(routeId)
-      .then((buses) => {
-        if (buses.length === 0) return; // fall back to route list
-        const mapped: BusRoute[] = buses.map((b) => ({
-          id: b.id,
-          number: b.fleet_code,
-          name: `Bus ${b.fleet_code} · ${b.plate_number}`,
-          destination: routeParam ? `Route ${routeParam}` : "Route service",
-          status: (b.status === "active" ? "active" : "delayed") as "active" | "delayed",
+    const mapRoutes = (data: import("@/services/api").ApiRoute[]): BusRoute[] =>
+      data.map((r) => {
+        const parts = r.name.split(" - ");
+        return {
+          id: String(r.id),
+          number: r.route_number ?? String(r.id),
+          name: r.name,
+          destination: r.destination ?? parts[1]?.trim() ?? parts[0] ?? r.name,
+          status: "active" as const,
           eta: "Live",
           etaColor: "#16a34a",
-          type: `Capacity: ${b.capacity ?? "--"}`,
-        }));
-        setAllRoutes(mapped);
-      })
-      .catch(() => {});
+          type: "Bus",
+        };
+      });
+
+    if (routeId) {
+      fetchBusesByRoute(routeId)
+        .then((buses) => {
+          if (buses.length > 0) {
+            setAllRoutes(
+              buses.map((b) => ({
+                id: b.id,
+                number: b.fleet_code,
+                name: `Bus ${b.fleet_code} · ${b.plate_number}`,
+                destination: routeParam ? `Route ${routeParam}` : "Route service",
+                status: (b.status === "active" ? "active" : "delayed") as "active" | "delayed",
+                eta: "Live",
+                etaColor: "#16a34a",
+                type: `Capacity: ${b.capacity ?? "--"}`,
+              }))
+            );
+            return;
+          }
+          // No fleet buses assigned — fall back to the route list filtered to this route
+          fetchRoutes()
+            .then((data) => {
+              const mapped = mapRoutes(data);
+              const filtered = mapped.filter(
+                (r) => r.id === routeId || (routeParam && r.number === routeParam)
+              );
+              setAllRoutes(filtered.length > 0 ? filtered : mapped);
+            })
+            .catch(() => {});
+        })
+        .catch(() => {});
+    } else {
+      fetchRoutes()
+        .then((data) => setAllRoutes(mapRoutes(data)))
+        .catch(() => {});
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId]);
 
-  // Fallback: load all routes (used when no specific routeId, e.g. browsing all buses)
-  useEffect(() => {
-    if (routeId) return; // already loading from fleet
-    fetchRoutes()
-      .then((data) => {
-        const mapped: BusRoute[] = data.map((r) => {
-          const parts = r.name.split(" - ");
-          return {
-            id: String(r.id),
-            number: r.route_number ?? String(r.id),
-            name: r.name,
-            destination: r.destination ?? parts[1]?.trim() ?? parts[0] ?? r.name,
-            status: "active" as const,
-            eta: "Live",
-            etaColor: "#16a34a",
-            type: "Bus",
-          };
-        });
-        setAllRoutes(mapped);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId]);
-
-  // Filter buses by route parameter
-  let filteredBuses = routeParam
+  // Filter buses by route parameter — skip when routeId is set because the
+  // fleet API already returned only buses for that route.
+  let filteredBuses = (routeParam && !routeId)
     ? allRoutes.filter((bus) => bus.number === routeParam)
     : allRoutes;
 
@@ -113,12 +122,13 @@ function NearbyBusesContent() {
   const handleSelectBus = (busId: string) => {
     const bus = allRoutes.find((b) => b.id === busId);
     const routeNum = bus?.number ?? busId;
-    // When coming from fleet (routeId present), pass the fleet bus id directly
-    const busParam = routeId
-      ? `${busId}`
-      : `BUS-${routeNum.padStart(2, "0")}`;
-    const routeDbParam = routeId ? `&routeDbId=${routeId}` : "";
-    router.push(`/tracking?bus=${busParam}&route=${routeNum}${routeDbParam}`);
+    if (routeId) {
+      // Fleet bus selected from stop-details: busId is the fleet bus DB id
+      router.push(`/tracking?bus=${busId}&route=${routeNum}&routeDbId=${routeId}`);
+    } else {
+      // Route selected from route list: busId IS the route's DB id
+      router.push(`/tracking?route=${routeNum}&routeDbId=${busId}`);
+    }
   };
   return (
     <div className="app-layout">
