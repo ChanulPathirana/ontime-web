@@ -120,13 +120,13 @@ function NearbyBusesContent() {
   });
 
   const handleSelectBus = (busId: string) => {
-    const bus = allRoutes.find((b) => b.id === busId);
-    const routeNum = bus?.number ?? busId;
     if (routeId) {
-      // Fleet bus selected from stop-details: busId is the fleet bus DB id
-      router.push(`/tracking?bus=${busId}&route=${routeNum}&routeDbId=${routeId}`);
+      // Fleet bus from stop-details: use routeParam (the real route number), not bus.number (fleet_code)
+      router.push(`/tracking?bus=${busId}&route=${routeParam ?? ""}&routeDbId=${routeId}`);
     } else {
-      // Route selected from route list: busId IS the route's DB id
+      // Route from route list: busId IS the route DB id, bus.number is the route number
+      const bus = allRoutes.find((b) => b.id === busId);
+      const routeNum = bus?.number ?? busId;
       router.push(`/tracking?route=${routeNum}&routeDbId=${busId}`);
     }
   };

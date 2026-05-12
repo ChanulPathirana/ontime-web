@@ -44,34 +44,51 @@ export default function RoutesPage() {
     );
   }
 
+  async function geocode(place: string): Promise<[number, number] | null> {
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(place)}.json?access_token=${MAPBOX_TOKEN}&country=LK&limit=1`,
+    );
+    const data = await res.json();
+    const center = data.features?.[0]?.center;
+    return center ? [center[0], center[1]] : null;
+  }
+
   async function handleSearch() {
-    // If no destination, just go to stops page
     if (!destinationLabel.trim()) {
       router.push("/stops");
       return;
     }
-    // If no user location yet, go to stops
-    if (!userCoords.current) {
-      router.push("/stops");
-      return;
-    }
-    // Geocode destination using Mapbox if token available
     if (!HAS_MAPBOX_TOKEN) {
       router.push("/stops");
       return;
     }
     setIsSearching(true);
     try {
-      const geoRes = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationLabel)}.json?access_token=${MAPBOX_TOKEN}&country=LK&limit=1`,
-      );
-      const geoData = await geoRes.json();
-      const [destLng, destLat] = geoData.features?.[0]?.center ?? [];
-      if (!destLng || !destLat) {
+      // Geocode destination
+      const destCoords = await geocode(destinationLabel);
+      if (!destCoords) {
         router.push("/stops");
         return;
       }
-      const [originLng, originLat] = userCoords.current;
+      const [destLng, destLat] = destCoords;
+
+      // Resolve origin: use GPS if available, otherwise geocode the typed label
+      let originLng: number;
+      let originLat: number;
+      if (userCoords.current) {
+        [originLng, originLat] = userCoords.current;
+      } else if (originLabel.trim() && originLabel !== "Current Location") {
+        const originCoords = await geocode(originLabel);
+        if (!originCoords) {
+          router.push("/stops");
+          return;
+        }
+        [originLng, originLat] = originCoords;
+      } else {
+        router.push("/stops");
+        return;
+      }
+
       const result = await searchRoutes(originLat, originLng, destLat, destLng);
       if (result.count > 0) {
         const ids = result.routes.map((r) => r.route_id).join(",");
