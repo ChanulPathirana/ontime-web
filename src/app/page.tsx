@@ -37,12 +37,15 @@ export default function RoutesPage() {
         flyToUser(data.longitude, data.latitude);
         userCoords.current = [data.longitude, data.latitude];
         setOriginLabel("My Location");
+        return;
       }
     } catch {
-      // silently fail
+      // fall through
     } finally {
       setLocating(false);
     }
+    // All location methods failed — let user type a start location
+    setOriginLabel("");
   }
 
   function requestLocation() {
@@ -269,7 +272,7 @@ export default function RoutesPage() {
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="Origin"
+                    placeholder="Search start location…"
                     value={originLabel}
                     onChange={(e) => setOriginLabel(e.target.value)}
                   />
